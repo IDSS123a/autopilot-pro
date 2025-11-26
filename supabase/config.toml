@@ -1,1 +1,4 @@
 project_id = "spqviadcrfegepgrmlvp"
+
+[functions.analyze-cv]
+verify_jwt = true
