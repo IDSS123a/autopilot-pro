@@ -1,4 +1,10 @@
 project_id = "spqviadcrfegepgrmlvp"
 
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.analyze-cv]
+verify_jwt = false
+
 [functions.analyze-cv]
 verify_jwt = true
