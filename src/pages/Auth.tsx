@@ -53,7 +53,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You've successfully logged in",
         });
-        navigate('/dashboard');
+        navigate('/app');
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -62,7 +62,7 @@ const Auth = () => {
             data: {
               full_name: fullName,
             },
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: `${window.location.origin}/app`,
           },
         });
 
@@ -72,7 +72,7 @@ const Auth = () => {
           title: "Account created!",
           description: "Welcome to C-Level AutoPilot Pro",
         });
-        navigate('/dashboard');
+        navigate('/app');
       }
     } catch (error: any) {
       toast({
