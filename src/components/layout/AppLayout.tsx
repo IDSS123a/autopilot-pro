@@ -10,6 +10,7 @@ const CommandCenter = lazy(() => import('@/components/dashboard/CommandCenter'))
 const CVAnalyzer = lazy(() => import('@/components/cv/CVAnalyzer'));
 const OpportunityScanner = lazy(() => import('@/components/opportunities/OpportunityScanner'));
 const RecruiterAgent = lazy(() => import('@/components/recruiters/RecruiterAgent'));
+const CommunicationHub = lazy(() => import('@/components/communication/CommunicationHub'));
 const DueDiligence = lazy(() => import('@/components/duediligence/DueDiligence'));
 const Settings = lazy(() => import('@/components/settings/Settings'));
 
@@ -57,7 +58,7 @@ const AppLayout: React.FC = () => {
                 <Route path="/cv-analysis" element={<CVAnalyzer />} />
                 <Route path="/opportunities" element={<OpportunityScanner />} />
                 <Route path="/recruiters" element={<RecruiterAgent />} />
-                <Route path="/communication" element={<RecruiterAgent />} />
+                <Route path="/communication" element={<CommunicationHub />} />
                 <Route path="/due-diligence" element={<DueDiligence />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/app" replace />} />

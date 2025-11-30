@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
-import { FileText, BrainCircuit, Scale, Loader2, CheckCircle, AlertTriangle, Target, BarChart2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { FileText, BrainCircuit, Scale, Loader2, CheckCircle, AlertTriangle, Target, BarChart2, Download } from 'lucide-react';
 import { analyzeCVContent, analyzeSkillGap } from '@/services/aiService';
 import { CVAnalysisResult, SkillGapAnalysisResult } from '@/types';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
 
 const CVAnalyzer: React.FC = () => {
   const [cvText, setCvText] = useState<string>('');
   const [jobDesc, setJobDesc] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAnalyzingGap, setIsAnalyzingGap] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [result, setResult] = useState<CVAnalysisResult | null>(null);
   const [gapResult, setGapResult] = useState<SkillGapAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'gap'>('general');
+  const { toast } = useToast();
 
   const handleAnalyze = async () => {
     if (!cvText.trim()) return;
@@ -20,24 +24,255 @@ const CVAnalyzer: React.FC = () => {
     try {
       const data = await analyzeCVContent(cvText);
       setResult(data);
+      toast({ title: 'Analysis complete', description: 'Your CV has been analyzed successfully' });
     } catch (error) {
       console.error(error);
+      toast({ title: 'Error', description: 'Failed to analyze CV', variant: 'destructive' });
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const handleGapAnalyze = async () => {
-    if (!cvText.trim() || !jobDesc.trim()) return;
+    if (!cvText.trim() || !jobDesc.trim()) {
+      toast({ title: 'Missing information', description: 'Please provide both CV and job description', variant: 'destructive' });
+      return;
+    }
     setIsAnalyzingGap(true);
     setActiveTab('gap');
     try {
       const data = await analyzeSkillGap(cvText, jobDesc);
       setGapResult(data);
+      toast({ title: 'Gap analysis complete', description: 'Skill gap analysis finished successfully' });
     } catch (error) {
       console.error(error);
+      toast({ title: 'Error', description: 'Failed to analyze skill gap', variant: 'destructive' });
     } finally {
       setIsAnalyzingGap(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!result && !gapResult) {
+      toast({ title: 'No results', description: 'Please run an analysis first', variant: 'destructive' });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let yPosition = margin;
+
+      // Header
+      pdf.setFillColor(15, 23, 42);
+      pdf.rect(0, 0, pageWidth, 40, 'F');
+      
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(24);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('CV Analysis Report', margin, 25);
+      
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Generated: ${new Date().toLocaleDateString()}`, margin, 35);
+      pdf.text('C-Level AutoPilot Pro', pageWidth - margin - 50, 35);
+
+      yPosition = 55;
+      pdf.setTextColor(0, 0, 0);
+
+      if (result) {
+        // Executive Readiness Score
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Executive Readiness Score', margin, yPosition);
+        yPosition += 15;
+
+        pdf.setFontSize(36);
+        const scoreColor = result.score >= 80 ? [34, 197, 94] : result.score >= 60 ? [59, 130, 246] : [245, 158, 11];
+        pdf.setTextColor(scoreColor[0], scoreColor[1], scoreColor[2]);
+        pdf.text(result.score.toString(), margin, yPosition);
+        pdf.setTextColor(0, 0, 0);
+        yPosition += 15;
+
+        // Sub scores
+        if (result.sub_scores) {
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Detailed Scores:', margin, yPosition);
+          yPosition += 8;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.text(`Leadership: ${result.sub_scores.leadership}/100`, margin, yPosition);
+          yPosition += 6;
+          pdf.text(`Impact: ${result.sub_scores.impact}/100`, margin, yPosition);
+          yPosition += 6;
+          pdf.text(`Communication: ${result.sub_scores.communication}/100`, margin, yPosition);
+          yPosition += 12;
+        }
+
+        // Summary
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Summary', margin, yPosition);
+        yPosition += 7;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        const summaryLines = pdf.splitTextToSize(result.summary, pageWidth - 2 * margin);
+        pdf.text(summaryLines, margin, yPosition);
+        yPosition += summaryLines.length * 5 + 10;
+
+        // Strengths
+        if (result.strengths.length > 0) {
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(34, 197, 94);
+          pdf.text('Strengths', margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          yPosition += 7;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          result.strengths.forEach((s) => {
+            if (yPosition > pageHeight - margin) {
+              pdf.addPage();
+              yPosition = margin;
+            }
+            const lines = pdf.splitTextToSize(`• ${s}`, pageWidth - 2 * margin);
+            pdf.text(lines, margin, yPosition);
+            yPosition += lines.length * 5 + 2;
+          });
+          yPosition += 8;
+        }
+
+        // Weaknesses
+        if (result.weaknesses.length > 0) {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(245, 158, 11);
+          pdf.text('Areas for Improvement', margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          yPosition += 7;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          result.weaknesses.forEach((w) => {
+            if (yPosition > pageHeight - margin) {
+              pdf.addPage();
+              yPosition = margin;
+            }
+            const lines = pdf.splitTextToSize(`• ${w}`, pageWidth - 2 * margin);
+            pdf.text(lines, margin, yPosition);
+            yPosition += lines.length * 5 + 2;
+          });
+          yPosition += 8;
+        }
+
+        // Strategic Positioning
+        if (result.strategic_positioning) {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(59, 130, 246);
+          pdf.text('Strategic Positioning', margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          yPosition += 7;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          const posLines = pdf.splitTextToSize(result.strategic_positioning, pageWidth - 2 * margin);
+          pdf.text(posLines, margin, yPosition);
+          yPosition += posLines.length * 5 + 10;
+        }
+      }
+
+      // Gap Analysis Results
+      if (gapResult) {
+        if (yPosition > pageHeight - 60) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Skill Gap Analysis', margin, yPosition);
+        yPosition += 12;
+
+        // Match Score
+        pdf.setFontSize(14);
+        pdf.text(`Job Match Score: ${gapResult.match_score}%`, margin, yPosition);
+        yPosition += 12;
+
+        // Missing Skills
+        if (gapResult.missing_critical_skills.length > 0) {
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(245, 158, 11);
+          pdf.text('Missing Critical Skills', margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          yPosition += 7;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          gapResult.missing_critical_skills.forEach((skill) => {
+            if (yPosition > pageHeight - margin) {
+              pdf.addPage();
+              yPosition = margin;
+            }
+            pdf.text(`• ${skill}`, margin, yPosition);
+            yPosition += 6;
+          });
+          yPosition += 8;
+        }
+
+        // Recommendations
+        if (gapResult.recommendations.length > 0) {
+          if (yPosition > pageHeight - 40) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setTextColor(59, 130, 246);
+          pdf.text('Tailoring Recommendations', margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          yPosition += 7;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          gapResult.recommendations.forEach((rec, i) => {
+            if (yPosition > pageHeight - margin) {
+              pdf.addPage();
+              yPosition = margin;
+            }
+            const lines = pdf.splitTextToSize(`${i + 1}. ${rec}`, pageWidth - 2 * margin);
+            pdf.text(lines, margin, yPosition);
+            yPosition += lines.length * 5 + 4;
+          });
+        }
+      }
+
+      // Footer
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setTextColor(128, 128, 128);
+        pdf.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        pdf.text('Generated by C-Level AutoPilot Pro', pageWidth / 2, pageHeight - 5, { align: 'center' });
+      }
+
+      pdf.save('cv-analysis-report.pdf');
+      toast({ title: 'PDF exported', description: 'Your analysis report has been downloaded' });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({ title: 'Export failed', description: 'Failed to generate PDF', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -67,6 +302,31 @@ SKILLS
 Cloud Architecture, AI/ML, Team Leadership, Digital Transformation, Agile, DevOps`);
   };
 
+  const fillMockJobDesc = () => {
+    setJobDesc(`Chief Technology Officer - FinTech Scale-up
+
+We are seeking a visionary CTO to lead our technology organization through the next phase of growth.
+
+Requirements:
+- 10+ years of technology leadership experience
+- Proven track record scaling engineering teams (50+)
+- Deep expertise in cloud architecture (AWS/GCP/Azure)
+- Experience with financial services or regulatory environments
+- Strong background in AI/ML implementation
+- Experience with microservices architecture
+- Track record of delivering products at scale
+- MBA or advanced technical degree preferred
+- Blockchain or DeFi experience is a plus
+- German language skills required
+
+Responsibilities:
+- Define and execute technology strategy
+- Build and lead a world-class engineering organization
+- Drive digital transformation initiatives
+- Ensure security and compliance standards
+- Partner with CEO and board on strategic decisions`);
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-success';
     if (score >= 60) return 'text-primary';
@@ -82,9 +342,26 @@ Cloud Architecture, AI/ML, Team Leadership, Digital Transformation, Agile, DevOp
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-heading font-bold text-foreground">CV Architect</h1>
-        <p className="text-muted-foreground mt-1">AI-powered CV analysis and optimization for C-Level roles</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-heading font-bold text-foreground">CV Architect</h1>
+          <p className="text-muted-foreground mt-1">AI-powered CV analysis and optimization for C-Level roles</p>
+        </div>
+        {(result || gapResult) && (
+          <Button onClick={handleExportPDF} disabled={isExporting} variant="outline">
+            {isExporting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -126,9 +403,14 @@ Cloud Architecture, AI/ML, Team Leadership, Digital Transformation, Agile, DevOp
           </div>
 
           <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Scale className="w-5 h-5 text-accent" />
-              <h3 className="font-heading font-semibold text-foreground">Job Description (for Gap Analysis)</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-accent" />
+                <h3 className="font-heading font-semibold text-foreground">Job Description (for Gap Analysis)</h3>
+              </div>
+              <Button variant="outline" size="sm" onClick={fillMockJobDesc}>
+                Load Sample
+              </Button>
             </div>
             <textarea
               value={jobDesc}
@@ -171,9 +453,8 @@ Cloud Architecture, AI/ML, Team Leadership, Digital Transformation, Agile, DevOp
             </button>
             <button
               onClick={() => setActiveTab('gap')}
-              disabled={!gapResult}
               className={`flex-1 py-3 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'gap' ? 'border-primary text-foreground bg-primary/5' : 'border-transparent text-muted-foreground hover:text-foreground disabled:opacity-50'
+                activeTab === 'gap' ? 'border-primary text-foreground bg-primary/5' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Gap Analysis
@@ -299,6 +580,13 @@ Cloud Architecture, AI/ML, Team Leadership, Digital Transformation, Agile, DevOp
                     ))}
                   </ul>
                 </div>
+              </div>
+            ) : activeTab === 'gap' && !gapResult ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Scale className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">
+                  Paste your CV and a job description, then click "Run Skill Gap Analysis"
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">

@@ -3,6 +3,7 @@ import { LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, L
 import { View } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import logoImage from '@/assets/logo.png';
 
 const Sidebar: React.FC = () => {
   const { userProfile, signOut } = useApp();
@@ -26,10 +27,12 @@ const Sidebar: React.FC = () => {
   return (
     <div className="w-64 bg-background border-r border-border flex flex-col h-screen sticky top-0 hidden md:flex">
       <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-2 text-primary">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-lg shadow-primary/20">
-            AP
-          </div>
+        <div className="flex items-center gap-3 text-primary">
+          <img 
+            src={logoImage} 
+            alt="AutoPilot Pro" 
+            className="h-10 w-10 rounded-lg object-cover shadow-lg shadow-primary/20"
+          />
           <span className="font-heading font-bold text-foreground tracking-tight">AutoPilot Pro</span>
         </div>
       </div>
@@ -76,11 +79,11 @@ const Sidebar: React.FC = () => {
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-            {userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            {userProfile.name ? userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{userProfile.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{userProfile.title}</p>
+            <p className="text-sm font-medium text-foreground truncate">{userProfile.name || 'User'}</p>
+            <p className="text-xs text-muted-foreground truncate">{userProfile.title || 'Executive'}</p>
           </div>
         </div>
       </div>
