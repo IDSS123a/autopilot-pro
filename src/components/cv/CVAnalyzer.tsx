@@ -4,6 +4,7 @@ import { analyzeCVContent, analyzeSkillGap } from '@/services/aiService';
 import { CVAnalysisResult, SkillGapAnalysisResult } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import jsPDF from 'jspdf';
 
 const CVAnalyzer: React.FC = () => {
@@ -36,15 +37,45 @@ const CVAnalyzer: React.FC = () => {
     setIsParsing(true);
 
     try {
-      // Read file as text - works for .txt files
-      const text = await file.text();
-      if (isMounted.current) {
-        setCvText(text);
-        toast({ title: 'File loaded', description: 'Text extracted successfully from your file' });
+      if (file.type === 'application/pdf') {
+        // Use edge function to parse PDF
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to parse PDF');
+        }
+
+        const data = await response.json();
+        if (isMounted.current) {
+          setCvText(data.text);
+          toast({ title: 'PDF parsed', description: 'Text extracted successfully from your CV' });
+        }
+      } else {
+        // Read file as text - works for .txt files
+        const text = await file.text();
+        if (isMounted.current) {
+          setCvText(text);
+          toast({ title: 'File loaded', description: 'Text extracted successfully from your file' });
+        }
       }
     } catch (error) {
       console.error('Error reading file:', error);
-      toast({ title: 'Read failed', description: 'Failed to read file. Please try pasting the text manually.', variant: 'destructive' });
+      toast({ title: 'Read failed', description: error instanceof Error ? error.message : 'Failed to read file. Please try pasting the text manually.', variant: 'destructive' });
     } finally {
       if (isMounted.current) {
         setIsParsing(false);
@@ -418,7 +449,7 @@ Responsibilities:
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={triggerFileUpload} disabled={isParsing}>
                   {isParsing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                  {isParsing ? 'Loading...' : 'Upload File'}
+                  {isParsing ? 'Parsing...' : 'Upload PDF'}
                 </Button>
                 <Button variant="outline" size="sm" onClick={fillMockCV}>
                   Load Sample
@@ -428,7 +459,7 @@ Responsibilities:
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileUpload}
-                accept=".txt,.doc,.docx"
+                accept=".pdf,.txt"
                 className="hidden"
               />
             </div>
