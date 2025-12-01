@@ -4,6 +4,8 @@ import { generateCompanyDossier } from '@/services/aiService';
 import { CompanyDossier } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const DueDiligence: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
@@ -16,9 +18,35 @@ const DueDiligence: React.FC = () => {
     setIsGenerating(true);
     try {
       const result = await generateCompanyDossier(companyName, industry || 'Technology');
-      if (result) setDossier(result);
+      if (result) {
+        setDossier(result);
+        
+        // Save to database
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase.from('company_dossiers').insert({
+            user_id: user.id,
+            company_name: result.companyName,
+            market_cap: result.marketCap || null,
+            headquarters: result.headquarters,
+            executive_summary: result.executiveSummary,
+            key_challenges: result.keyChallenges,
+            strategic_opportunities: result.strategicOpportunities,
+            culture_analysis: result.cultureAnalysis,
+            interview_questions: result.interviewQuestions
+          });
+          
+          if (error) {
+            console.error('Error saving dossier:', error);
+            toast.error('Failed to save dossier');
+          } else {
+            toast.success('Dossier saved successfully');
+          }
+        }
+      }
     } catch (error) {
       console.error(error);
+      toast.error('Failed to generate dossier');
     } finally {
       setIsGenerating(false);
     }
