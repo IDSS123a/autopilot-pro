@@ -1,17 +1,76 @@
-import React, { useState } from 'react';
-import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2, FolderOpen, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { generateCompanyDossier } from '@/services/aiService';
 import { CompanyDossier } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Json } from '@/integrations/supabase/types';
+
+interface InterviewQuestions {
+  expected_from_ceo: string[];
+  to_ask_ceo: string[];
+}
+
+interface SavedDossier {
+  id: string;
+  company_name: string;
+  market_cap: string | null;
+  headquarters: string | null;
+  executive_summary: string | null;
+  key_challenges: string[] | null;
+  strategic_opportunities: string[] | null;
+  culture_analysis: string | null;
+  interview_questions: Json;
+  created_at: string;
+}
+
+const parseInterviewQuestions = (json: Json): InterviewQuestions => {
+  if (json && typeof json === 'object' && !Array.isArray(json)) {
+    const obj = json as Record<string, unknown>;
+    return {
+      expected_from_ceo: Array.isArray(obj.expected_from_ceo) ? obj.expected_from_ceo as string[] : [],
+      to_ask_ceo: Array.isArray(obj.to_ask_ceo) ? obj.to_ask_ceo as string[] : []
+    };
+  }
+  return { expected_from_ceo: [], to_ask_ceo: [] };
+};
 
 const DueDiligence: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [industry, setIndustry] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [dossier, setDossier] = useState<CompanyDossier | null>(null);
+  const [savedDossiers, setSavedDossiers] = useState<SavedDossier[]>([]);
+  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  const [showSaved, setShowSaved] = useState(true);
+
+  // Load saved dossiers on mount
+  useEffect(() => {
+    loadSavedDossiers();
+  }, []);
+
+  const loadSavedDossiers = async () => {
+    setIsLoadingSaved(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('company_dossiers')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setSavedDossiers(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading dossiers:', error);
+    } finally {
+      setIsLoadingSaved(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!companyName) return;
@@ -41,6 +100,7 @@ const DueDiligence: React.FC = () => {
             toast.error('Failed to save dossier');
           } else {
             toast.success('Dossier saved successfully');
+            loadSavedDossiers(); // Refresh the list
           }
         }
       }
@@ -52,6 +112,42 @@ const DueDiligence: React.FC = () => {
     }
   };
 
+  const handleLoadDossier = (saved: SavedDossier) => {
+    const loadedDossier: CompanyDossier = {
+      companyName: saved.company_name,
+      marketCap: saved.market_cap || undefined,
+      headquarters: saved.headquarters || '',
+      executiveSummary: saved.executive_summary || '',
+      keyChallenges: saved.key_challenges || [],
+      strategicOpportunities: saved.strategic_opportunities || [],
+      cultureAnalysis: saved.culture_analysis || '',
+      interviewQuestions: parseInterviewQuestions(saved.interview_questions)
+    };
+    setDossier(loadedDossier);
+    toast.success(`Loaded dossier for ${saved.company_name}`);
+  };
+
+  const handleDeleteDossier = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase.from('company_dossiers').delete().eq('id', id);
+      if (error) throw error;
+      setSavedDossiers(prev => prev.filter(d => d.id !== id));
+      toast.success('Dossier deleted');
+    } catch (error) {
+      console.error('Error deleting dossier:', error);
+      toast.error('Failed to delete dossier');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
@@ -59,7 +155,69 @@ const DueDiligence: React.FC = () => {
         <p className="text-muted-foreground mt-1">AI-powered company research for interview preparation</p>
       </div>
 
+      {/* Saved Dossiers Section */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <button 
+          onClick={() => setShowSaved(!showSaved)}
+          className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-primary" />
+            <h3 className="font-heading font-semibold text-foreground">Saved Dossiers</h3>
+            <span className="text-sm text-muted-foreground">({savedDossiers.length})</span>
+          </div>
+          {showSaved ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+        </button>
+        
+        {showSaved && (
+          <div className="border-t border-border">
+            {isLoadingSaved ? (
+              <div className="p-6 text-center">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+              </div>
+            ) : savedDossiers.length === 0 ? (
+              <div className="p-6 text-center text-muted-foreground">
+                No saved dossiers yet. Generate your first company research below.
+              </div>
+            ) : (
+              <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                {savedDossiers.map((saved) => (
+                  <div
+                    key={saved.id}
+                    onClick={() => handleLoadDossier(saved)}
+                    className="flex items-center justify-between p-4 hover:bg-muted/50 cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{saved.company_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {saved.headquarters && `${saved.headquarters} • `}
+                          {formatDate(saved.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleDeleteDossier(saved.id, e)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Generate New Dossier */}
       <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="font-heading font-semibold text-foreground mb-4">Generate New Dossier</h3>
         <div className="flex gap-4 mb-6">
           <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company name (e.g., FinTech Zurich)" className="flex-1" />
           <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Industry (optional)" className="w-48" />
