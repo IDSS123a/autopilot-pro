@@ -1,10 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { FileText, BrainCircuit, Scale, Loader2, CheckCircle, AlertTriangle, Target, BarChart2, Download } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { FileText, BrainCircuit, Scale, Loader2, CheckCircle, AlertTriangle, Target, BarChart2, Download, Upload } from 'lucide-react';
 import { analyzeCVContent, analyzeSkillGap } from '@/services/aiService';
 import { CVAnalysisResult, SkillGapAnalysisResult } from '@/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker source for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 
 const CVAnalyzer: React.FC = () => {
   const [cvText, setCvText] = useState<string>('');
@@ -12,10 +16,69 @@ const CVAnalyzer: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAnalyzingGap, setIsAnalyzingGap] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [result, setResult] = useState<CVAnalysisResult | null>(null);
   const [gapResult, setGapResult] = useState<SkillGapAnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'gap'>('general');
   const { toast } = useToast();
+  
+  // File input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Track component mount status to prevent state updates on unmount
+  const isMounted = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast({ title: 'Invalid file', description: 'Please upload a valid PDF file.', variant: 'destructive' });
+      return;
+    }
+
+    setIsParsing(true);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let extractedText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        extractedText += pageText + '\n';
+      }
+
+      if (isMounted.current) {
+        setCvText(extractedText);
+        toast({ title: 'PDF parsed', description: 'Text extracted successfully from your CV' });
+      }
+    } catch (error) {
+      console.error('Error parsing PDF:', error);
+      toast({ title: 'Parse failed', description: 'Failed to extract text from PDF. Please try pasting the text manually.', variant: 'destructive' });
+    } finally {
+      if (isMounted.current) {
+        setIsParsing(false);
+        // Reset input value so same file can be selected again if needed
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    }
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleAnalyze = async () => {
     if (!cvText.trim()) return;
@@ -373,19 +436,43 @@ Responsibilities:
                 <FileText className="w-5 h-5 text-primary" />
                 <h3 className="font-heading font-semibold text-foreground">Your CV</h3>
               </div>
-              <Button variant="outline" size="sm" onClick={fillMockCV}>
-                Load Sample
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={triggerFileUpload} disabled={isParsing}>
+                  {isParsing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                  {isParsing ? 'Parsing...' : 'Upload PDF'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={fillMockCV}>
+                  Load Sample
+                </Button>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".pdf"
+                className="hidden"
+              />
             </div>
-            <textarea
-              value={cvText}
-              onChange={(e) => setCvText(e.target.value)}
-              placeholder="Paste your CV text here..."
-              className="w-full h-48 bg-input border border-border rounded-lg p-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-            />
+            <div className="relative">
+              <textarea
+                value={cvText}
+                onChange={(e) => setCvText(e.target.value)}
+                placeholder="Paste your CV text here or upload a PDF..."
+                className={`w-full h-48 bg-input border border-border rounded-lg p-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none ${isParsing ? 'opacity-50' : ''}`}
+                disabled={isParsing}
+              />
+              {isParsing && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-card/90 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center gap-2 border border-border">
+                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                    <span className="text-sm font-medium text-foreground">Extracting text...</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <Button
               onClick={handleAnalyze}
-              disabled={!cvText.trim() || isAnalyzing}
+              disabled={!cvText.trim() || isAnalyzing || isParsing}
               className="w-full mt-4"
             >
               {isAnalyzing ? (
@@ -420,7 +507,7 @@ Responsibilities:
             />
             <Button
               onClick={handleGapAnalyze}
-              disabled={!cvText.trim() || !jobDesc.trim() || isAnalyzingGap}
+              disabled={!cvText.trim() || !jobDesc.trim() || isAnalyzingGap || isParsing}
               variant="secondary"
               className="w-full mt-4"
             >

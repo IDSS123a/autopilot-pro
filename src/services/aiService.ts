@@ -36,22 +36,50 @@ async function callAI(prompt: string, systemPrompt?: string): Promise<string> {
   return data.content || '';
 }
 
+/**
+ * Robust JSON extraction helper.
+ * Handles:
+ * 1. Markdown code blocks (```json ... ```)
+ * 2. Conversational filler text ("Here is your JSON: ...")
+ * 3. Raw JSON
+ */
 function extractJSON(text: string): any {
+  if (!text) return {};
+
   try {
-    // Try direct parse first
+    // Attempt 1: Clean parse
     return JSON.parse(text);
   } catch {
-    // Extract JSON from markdown code blocks
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1].trim());
+    // Attempt 2: Remove Markdown wrappers
+    let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    try {
+      return JSON.parse(clean);
+    } catch {
+      // Attempt 3: Extract the first JSON object {} or array []
+      const firstOpenBrace = clean.indexOf('{');
+      const lastCloseBrace = clean.lastIndexOf('}');
+
+      if (firstOpenBrace !== -1 && lastCloseBrace !== -1) {
+        try {
+          return JSON.parse(clean.substring(firstOpenBrace, lastCloseBrace + 1));
+        } catch {
+          // Continue to array check
+        }
+      }
+
+      const firstOpenBracket = clean.indexOf('[');
+      const lastCloseBracket = clean.lastIndexOf(']');
+      if (firstOpenBracket !== -1 && lastCloseBracket !== -1) {
+        try {
+          return JSON.parse(clean.substring(firstOpenBracket, lastCloseBracket + 1));
+        } catch {
+          // Failure
+        }
+      }
+
+      console.warn("Failed to extract JSON from response:", text.substring(0, 100) + "...");
+      throw new Error("JSON Parsing Failed");
     }
-    // Try to find JSON object in text
-    const objectMatch = text.match(/\{[\s\S]*\}/);
-    if (objectMatch) {
-      return JSON.parse(objectMatch[0]);
-    }
-    throw new Error('Could not extract JSON from response');
   }
 }
 
