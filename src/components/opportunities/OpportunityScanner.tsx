@@ -1,9 +1,40 @@
 import React, { useState } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check } from 'lucide-react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const WORLD_REGIONS = [
+  { id: 'dach', name: 'DACH (Germany, Austria, Switzerland)', countries: ['Germany', 'Austria', 'Switzerland'] },
+  { id: 'see', name: 'SEE (Southeast Europe)', countries: ['Croatia', 'Serbia', 'Bosnia', 'Slovenia', 'North Macedonia', 'Albania', 'Montenegro', 'Kosovo'] },
+  { id: 'nordics', name: 'Nordics', countries: ['Sweden', 'Norway', 'Denmark', 'Finland', 'Iceland'] },
+  { id: 'benelux', name: 'Benelux', countries: ['Belgium', 'Netherlands', 'Luxembourg'] },
+  { id: 'uk_ireland', name: 'UK & Ireland', countries: ['United Kingdom', 'Ireland'] },
+  { id: 'france', name: 'France', countries: ['France', 'Monaco'] },
+  { id: 'iberia', name: 'Iberia', countries: ['Spain', 'Portugal'] },
+  { id: 'italy', name: 'Italy', countries: ['Italy', 'San Marino', 'Vatican'] },
+  { id: 'eastern_europe', name: 'Eastern Europe', countries: ['Poland', 'Czech Republic', 'Slovakia', 'Hungary', 'Romania', 'Bulgaria'] },
+  { id: 'baltics', name: 'Baltics', countries: ['Estonia', 'Latvia', 'Lithuania'] },
+  { id: 'cis', name: 'CIS (Commonwealth)', countries: ['Russia', 'Ukraine', 'Belarus', 'Kazakhstan', 'Uzbekistan'] },
+  { id: 'middle_east', name: 'Middle East', countries: ['UAE', 'Saudi Arabia', 'Qatar', 'Israel', 'Turkey', 'Egypt'] },
+  { id: 'africa', name: 'Africa', countries: ['South Africa', 'Nigeria', 'Kenya', 'Morocco', 'Ghana'] },
+  { id: 'south_asia', name: 'South Asia', countries: ['India', 'Pakistan', 'Bangladesh', 'Sri Lanka'] },
+  { id: 'southeast_asia', name: 'Southeast Asia', countries: ['Singapore', 'Malaysia', 'Thailand', 'Vietnam', 'Indonesia', 'Philippines'] },
+  { id: 'east_asia', name: 'East Asia', countries: ['China', 'Japan', 'South Korea', 'Taiwan', 'Hong Kong'] },
+  { id: 'oceania', name: 'Oceania', countries: ['Australia', 'New Zealand'] },
+  { id: 'north_america', name: 'North America', countries: ['USA', 'Canada', 'Mexico'] },
+  { id: 'latam', name: 'Latin America', countries: ['Brazil', 'Argentina', 'Chile', 'Colombia', 'Peru'] },
+  { id: 'caribbean', name: 'Caribbean', countries: ['Jamaica', 'Bahamas', 'Dominican Republic', 'Puerto Rico'] },
+];
 
 const INITIAL_JOBS: Opportunity[] = [
   {
@@ -49,6 +80,8 @@ const OpportunityScanner: React.FC = () => {
   const [jobs, setJobs] = useState<Opportunity[]>(INITIAL_JOBS);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Opportunity | null>(null);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(['dach', 'see']);
+  const [isScanning, setIsScanning] = useState(false);
 
   const handleAnalyze = async (job: Opportunity) => {
     setAnalyzingId(job.id);
@@ -83,6 +116,33 @@ const OpportunityScanner: React.FC = () => {
     }
   };
 
+  const toggleRegion = (regionId: string) => {
+    setSelectedRegions(prev => 
+      prev.includes(regionId) 
+        ? prev.filter(r => r !== regionId)
+        : [...prev, regionId]
+    );
+  };
+
+  const handleScan = async () => {
+    setIsScanning(true);
+    // Simulate scanning - in production this would call an API
+    setTimeout(() => {
+      setIsScanning(false);
+    }, 2000);
+  };
+
+  const getSelectedRegionNames = () => {
+    if (selectedRegions.length === 0) return 'Select Regions';
+    if (selectedRegions.length <= 2) {
+      return selectedRegions.map(id => {
+        const region = WORLD_REGIONS.find(r => r.id === id);
+        return region?.name.split(' ')[0] || id;
+      }).join(' + ');
+    }
+    return `${selectedRegions.length} regions selected`;
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-success bg-success/10 border-success/30';
     if (score >= 60) return 'text-primary bg-primary/10 border-primary/30';
@@ -95,19 +155,113 @@ const OpportunityScanner: React.FC = () => {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-heading font-bold text-foreground">Opportunity Mining</h1>
-          <p className="text-muted-foreground mt-1">AI-analyzed executive opportunities in DACH & SEE regions</p>
+          <p className="text-muted-foreground mt-1">
+            AI-analyzed executive opportunities in {selectedRegions.length > 0 ? getSelectedRegionNames() : 'selected regions'}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Globe className="w-4 h-4 mr-2" />
-            DACH + SEE
-          </Button>
-          <Button size="sm">
-            <Search className="w-4 h-4 mr-2" />
-            Scan New
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Globe className="w-4 h-4 mr-2" />
+                {getSelectedRegionNames()}
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72 max-h-96 overflow-y-auto bg-popover border border-border z-50">
+              <DropdownMenuLabel>Select Target Regions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Europe</DropdownMenuLabel>
+              {WORLD_REGIONS.filter(r => ['dach', 'see', 'nordics', 'benelux', 'uk_ireland', 'france', 'iberia', 'italy', 'eastern_europe', 'baltics'].includes(r.id)).map(region => (
+                <DropdownMenuCheckboxItem
+                  key={region.id}
+                  checked={selectedRegions.includes(region.id)}
+                  onCheckedChange={() => toggleRegion(region.id)}
+                >
+                  <div>
+                    <div className="font-medium">{region.name}</div>
+                    <div className="text-xs text-muted-foreground">{region.countries.slice(0, 3).join(', ')}{region.countries.length > 3 ? '...' : ''}</div>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">CIS & Middle East</DropdownMenuLabel>
+              {WORLD_REGIONS.filter(r => ['cis', 'middle_east'].includes(r.id)).map(region => (
+                <DropdownMenuCheckboxItem
+                  key={region.id}
+                  checked={selectedRegions.includes(region.id)}
+                  onCheckedChange={() => toggleRegion(region.id)}
+                >
+                  <div>
+                    <div className="font-medium">{region.name}</div>
+                    <div className="text-xs text-muted-foreground">{region.countries.slice(0, 3).join(', ')}{region.countries.length > 3 ? '...' : ''}</div>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Asia & Pacific</DropdownMenuLabel>
+              {WORLD_REGIONS.filter(r => ['south_asia', 'southeast_asia', 'east_asia', 'oceania'].includes(r.id)).map(region => (
+                <DropdownMenuCheckboxItem
+                  key={region.id}
+                  checked={selectedRegions.includes(region.id)}
+                  onCheckedChange={() => toggleRegion(region.id)}
+                >
+                  <div>
+                    <div className="font-medium">{region.name}</div>
+                    <div className="text-xs text-muted-foreground">{region.countries.slice(0, 3).join(', ')}{region.countries.length > 3 ? '...' : ''}</div>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Americas & Africa</DropdownMenuLabel>
+              {WORLD_REGIONS.filter(r => ['north_america', 'latam', 'caribbean', 'africa'].includes(r.id)).map(region => (
+                <DropdownMenuCheckboxItem
+                  key={region.id}
+                  checked={selectedRegions.includes(region.id)}
+                  onCheckedChange={() => toggleRegion(region.id)}
+                >
+                  <div>
+                    <div className="font-medium">{region.name}</div>
+                    <div className="text-xs text-muted-foreground">{region.countries.slice(0, 3).join(', ')}{region.countries.length > 3 ? '...' : ''}</div>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <Button size="sm" onClick={handleScan} disabled={isScanning || selectedRegions.length === 0}>
+            {isScanning ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Scanning...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4 mr-2" />
+                Scan New
+              </>
+            )}
           </Button>
         </div>
       </div>
+
+      {/* Selected Regions Summary */}
+      {selectedRegions.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedRegions.map(regionId => {
+            const region = WORLD_REGIONS.find(r => r.id === regionId);
+            return region ? (
+              <span key={regionId} className="px-3 py-1 bg-primary/10 text-primary text-sm rounded-full border border-primary/30">
+                {region.name.split(' ')[0]}
+              </span>
+            ) : null;
+          })}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}
