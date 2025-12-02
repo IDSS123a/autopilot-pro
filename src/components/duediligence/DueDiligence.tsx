@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2, FolderOpen, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2, FolderOpen, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { generateCompanyDossier } from '@/services/aiService';
 import { CompanyDossier } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
+import { jsPDF } from 'jspdf';
 
 interface InterviewQuestions {
   expected_from_ceo: string[];
@@ -148,6 +149,73 @@ const DueDiligence: React.FC = () => {
     });
   };
 
+  const exportToPDF = (dossierData: CompanyDossier) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPos = 20;
+
+    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach((line: string) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(line, margin, yPos);
+        yPos += fontSize * 0.5;
+      });
+      yPos += 5;
+    };
+
+    // Header
+    addText(dossierData.companyName, 20, true);
+    addText(`${dossierData.headquarters || ''} ${dossierData.marketCap ? `• ${dossierData.marketCap}` : ''}`, 12);
+    yPos += 5;
+
+    // Executive Summary
+    addText('Executive Summary', 14, true);
+    addText(dossierData.executiveSummary, 10);
+    yPos += 5;
+
+    // Key Challenges
+    addText('Key Challenges', 14, true);
+    dossierData.keyChallenges.forEach((challenge, i) => {
+      addText(`${i + 1}. ${challenge}`, 10);
+    });
+    yPos += 5;
+
+    // Strategic Opportunities
+    addText('Strategic Opportunities', 14, true);
+    dossierData.strategicOpportunities.forEach((opp, i) => {
+      addText(`${i + 1}. ${opp}`, 10);
+    });
+    yPos += 5;
+
+    // Culture Analysis
+    addText('Culture Analysis', 14, true);
+    addText(dossierData.cultureAnalysis, 10);
+    yPos += 5;
+
+    // Interview Questions
+    addText('Questions CEO May Ask', 14, true);
+    dossierData.interviewQuestions.expected_from_ceo.forEach((q, i) => {
+      addText(`${i + 1}. ${q}`, 10);
+    });
+    yPos += 5;
+
+    addText('Questions to Ask CEO', 14, true);
+    dossierData.interviewQuestions.to_ask_ceo.forEach((q, i) => {
+      addText(`${i + 1}. ${q}`, 10);
+    });
+
+    doc.save(`${dossierData.companyName.replace(/\s+/g, '_')}_Dossier.pdf`);
+    toast.success('PDF exported successfully');
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
@@ -229,14 +297,20 @@ const DueDiligence: React.FC = () => {
 
         {dossier ? (
           <div className="space-y-6">
-            <div className="flex items-center gap-4 pb-4 border-b border-border">
-              <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Building2 className="w-8 h-8 text-primary" />
+            <div className="flex items-center justify-between pb-4 border-b border-border">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <Building2 className="w-8 h-8 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-heading font-bold text-foreground">{dossier.companyName}</h2>
+                  <p className="text-muted-foreground">{dossier.headquarters} {dossier.marketCap && `• ${dossier.marketCap}`}</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-heading font-bold text-foreground">{dossier.companyName}</h2>
-                <p className="text-muted-foreground">{dossier.headquarters} {dossier.marketCap && `• ${dossier.marketCap}`}</p>
-              </div>
+              <Button onClick={() => exportToPDF(dossier)} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export PDF
+              </Button>
             </div>
 
             <div>
