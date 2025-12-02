@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown } from 'lucide-react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, RefreshCw } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,11 +127,54 @@ const OpportunityScanner: React.FC = () => {
   };
 
   const handleScan = async () => {
+    if (selectedRegions.length === 0) {
+      toast.error('Please select at least one region');
+      return;
+    }
+    
     setIsScanning(true);
-    // Simulate scanning - in production this would call an API
-    setTimeout(() => {
+    try {
+      const regionNames = selectedRegions.map(id => {
+        const region = WORLD_REGIONS.find(r => r.id === id);
+        return region?.name || id;
+      });
+
+      const { data, error } = await supabase.functions.invoke('scan-opportunities', {
+        body: { 
+          regions: regionNames,
+          userProfile: {
+            targetRole: userProfile.targetRole,
+            industries: userProfile.industries,
+            bio: userProfile.bio
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Scan error:', error);
+        toast.error('Failed to scan opportunities');
+        return;
+      }
+
+      if (data?.opportunities && data.opportunities.length > 0) {
+        // Add unique IDs and merge with existing jobs
+        const newOpportunities = data.opportunities.map((opp: any, index: number) => ({
+          ...opp,
+          id: `scan-${Date.now()}-${index}`,
+          match_score: 0
+        }));
+        
+        setJobs(prev => [...newOpportunities, ...prev]);
+        toast.success(`Found ${newOpportunities.length} new opportunities!`);
+      } else {
+        toast.info('No new opportunities found for selected regions');
+      }
+    } catch (error) {
+      console.error('Scan failed:', error);
+      toast.error('Failed to scan opportunities');
+    } finally {
       setIsScanning(false);
-    }, 2000);
+    }
   };
 
   const getSelectedRegionNames = () => {
