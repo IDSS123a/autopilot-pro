@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,14 +32,10 @@ serve(async (req) => {
       );
     }
 
-    // Convert file to base64
+    // Convert file to base64 using proper encoding (avoids stack overflow)
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const base64 = base64Encode(arrayBuffer);
 
-    // Use pdf-parse via a simple text extraction approach
-    // Since we can't use pdf-parse directly in Deno, we'll use pdf.js via CDN
-    // For now, let's use a simpler approach with the Lovable AI to extract text
-    
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -48,8 +45,10 @@ serve(async (req) => {
       );
     }
 
+    console.log('Sending PDF to AI for text extraction, size:', arrayBuffer.byteLength, 'bytes');
+
     // Use AI to extract text from PDF (via vision capability)
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -80,7 +79,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', errorText);
+      console.error('AI API error:', response.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to parse PDF', details: errorText }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -89,6 +88,8 @@ serve(async (req) => {
 
     const data = await response.json();
     const extractedText = data.choices?.[0]?.message?.content || '';
+
+    console.log('PDF text extracted successfully, length:', extractedText.length);
 
     return new Response(
       JSON.stringify({ text: extractedText }),
