@@ -74,25 +74,73 @@ Pending Follow-ups: ${pendingItems}
 
 Create a 3-sentence motivational morning briefing for a C-level job seeker.`,
 
-  COMPANY_DOSSIER: (companyName: string, industry: string) => `You are a senior M&A due diligence analyst. Generate a comprehensive intelligence dossier for a C-Level executive preparing for interviews.
+  COMPANY_DOSSIER: (companyName: string, industry: string) => `You are a world-class corporate intelligence analyst with access to comprehensive business databases, financial reports, news archives, and industry analysis. Generate an EXTREMELY detailed and actionable intelligence dossier for a C-Level executive preparing for interviews.
 
 Company: ${companyName}
 Industry: ${industry}
 
-Generate a JSON response with:
+IMPORTANT: Provide REAL, ACCURATE, and CURRENT information based on your knowledge. If you're uncertain about specific details, indicate this clearly. Focus on publicly available information that would be verifiable.
+
+Research and analyze:
+
+1. COMPANY OVERVIEW
+- Full legal name, founding date, headquarters location
+- Company size (employees, revenue if public)
+- Business model and primary revenue streams
+- Key products/services and market position
+- Recent major news and developments (last 12 months)
+
+2. LEADERSHIP & GOVERNANCE  
+- Current C-suite executives (CEO, CFO, COO, CTO, etc.)
+- Board composition and notable directors
+- Leadership changes in last 2 years
+- Management style and corporate governance reputation
+
+3. FINANCIAL HEALTH (if public/available)
+- Recent financial performance trends
+- Market capitalization or valuation estimates
+- Funding rounds (if startup) or major investments
+- Debt levels and financial stability indicators
+
+4. STRATEGIC POSITION
+- Main competitors and market share
+- Competitive advantages and moats
+- Recent M&A activity
+- Strategic partnerships and alliances
+
+5. CHALLENGES & OPPORTUNITIES
+- Current business challenges (from news, reports)
+- Industry headwinds affecting the company
+- Growth opportunities and expansion plans
+- Digital transformation status
+
+6. CULTURE & REPUTATION
+- Employee reviews summary (Glassdoor, Kununu themes)
+- ESG/sustainability initiatives
+- Awards and recognitions
+- Employer brand perception in ${industry}
+
+7. INTERVIEW PREPARATION
+- Likely strategic questions CEO might ask
+- Smart questions to ask that demonstrate deep research
+- Talking points that would resonate with leadership
+
+Generate a JSON response:
 {
-  "companyName": "...",
-  "marketCap": "...",
-  "headquarters": "...",
-  "executiveSummary": "2-3 paragraph overview",
-  "keyChallenges": ["...", "...", "..."],
-  "strategicOpportunities": ["...", "...", "..."],
-  "cultureAnalysis": "...",
+  "companyName": "${companyName}",
+  "marketCap": "Estimated value or 'Private'",
+  "headquarters": "City, Country",
+  "executiveSummary": "Comprehensive 3-4 paragraph overview covering business model, market position, recent performance, and strategic direction. Be specific and factual.",
+  "keyChallenges": ["5-6 specific, current challenges with context"],
+  "strategicOpportunities": ["5-6 specific opportunities based on market trends"],
+  "cultureAnalysis": "Detailed analysis of corporate culture, leadership style, work environment, and what kind of executives thrive there. Include specific examples if known.",
   "interviewQuestions": {
-    "expected_from_ceo": ["...", "...", "..."],
-    "to_ask_ceo": ["...", "...", "..."]
+    "expected_from_ceo": ["7-8 specific, challenging questions a CEO might ask, tailored to the company's situation"],
+    "to_ask_ceo": ["7-8 impressive questions demonstrating deep research and strategic thinking"]
   }
-}`,
+}
+
+Be specific, actionable, and executive-level in your analysis. Avoid generic statements.`,
 
   EMAIL_SIGNATURE: (name: string, title: string, company: string, phone: string, linkedin: string, website: string) => `Create 3 professional email signature variations for an executive job seeker.
 
@@ -103,5 +151,22 @@ Phone: ${phone}
 LinkedIn: ${linkedin}
 Website: ${website}
 
-Format each as plain text. Keep them concise and elegant.`
+Format each as plain text. Keep them concise and elegant.`,
+
+  GENERATE_COMMUNICATION: (contactName: string, company: string, type: string, userProfile: any) => `Write a professional ${type === 'linkedin' ? 'LinkedIn message' : 'email'} to ${contactName} at ${company}.
+
+Sender Profile:
+- Name: ${userProfile.name}
+- Title: ${userProfile.title}
+- Target Role: ${userProfile.targetRole}
+- Industries: ${userProfile.industries}
+- Background: ${userProfile.bio}
+
+Write a compelling, personalized message that:
+1. Opens with a relevant hook or connection point
+2. Briefly highlights 2-3 key qualifications relevant to their company
+3. Shows genuine interest and knowledge about their organization
+4. Ends with a clear, low-pressure call-to-action
+
+Keep it under 200 words. Be professional but warm. Avoid clichés and generic phrases.`
 };
