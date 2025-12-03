@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2 } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
@@ -38,52 +38,56 @@ const WORLD_REGIONS = [
   { id: 'caribbean', name: 'Caribbean', countries: ['Jamaica', 'Bahamas', 'Dominican Republic', 'Puerto Rico'] },
 ];
 
-const INITIAL_JOBS: Opportunity[] = [
-  {
-    id: '1',
-    title: 'Group Chief Operating Officer',
-    company: 'Balkan Pharma Group',
-    location: 'Sarajevo / Hybrid',
-    salary_range: '€140k - €180k + Equity',
-    match_score: 0,
-    status: 'New',
-    source: 'Executive Search',
-    posted_date: '4h ago',
-    description: 'Leading pharmaceutical group in SEE region seeking Group COO to oversee operations across 4 countries. Must have experience in supply chain optimization and EU regulatory compliance.'
-  },
-  {
-    id: '2',
-    title: 'VP Engineering / CTO',
-    company: 'FinTech Zurich',
-    location: 'Zurich, Switzerland',
-    salary_range: 'CHF 220k - CHF 280k',
-    match_score: 0,
-    status: 'New',
-    source: 'LinkedIn Jobs',
-    posted_date: '12h ago',
-    description: 'Scaling a Series B crypto-banking platform. Requires deep expertise in blockchain security, high-frequency trading systems, and leading distributed teams across DACH.'
-  },
-  {
-    id: '3',
-    title: 'Managing Director',
-    company: 'AutoMotive Components DE',
-    location: 'Stuttgart, Germany',
-    salary_range: '€200k+',
-    match_score: 0,
-    status: 'New',
-    source: 'Handelsblatt',
-    posted_date: '1d ago',
-    description: 'P&L responsibility for the e-mobility division. Driving transformation from traditional combustion to EV components. Strong leadership and restructuring experience required.'
-  }
-];
-
 const OpportunityScanner: React.FC = () => {
   const { userProfile } = useApp();
-  const [jobs, setJobs] = useState<Opportunity[]>(INITIAL_JOBS);
+  const [jobs, setJobs] = useState<Opportunity[]>([]);
+  const [savedOpportunities, setSavedOpportunities] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Opportunity | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(['dach', 'see']);
   const [isScanning, setIsScanning] = useState(false);
+
+  useEffect(() => {
+    loadSavedOpportunities();
+  }, []);
+
+  const loadSavedOpportunities = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const mappedJobs: Opportunity[] = data.map(opp => ({
+            id: opp.id,
+            title: opp.position_title,
+            company: opp.company_name,
+            location: opp.location || '',
+            salary_range: opp.salary_range || '',
+            match_score: opp.match_score || 0,
+            status: (opp.status as Opportunity['status']) || 'New',
+            source: opp.source || '',
+            posted_date: opp.posted_date || '',
+            description: opp.job_description || ''
+          }));
+          setJobs(mappedJobs);
+          setSavedOpportunities(data.map(d => d.id));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading opportunities:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleAnalyze = async (job: Opportunity) => {
     setAnalyzingId(job.id);
@@ -110,11 +114,73 @@ const OpportunityScanner: React.FC = () => {
         
         setJobs(jobs.map(j => j.id === job.id ? updatedJob : j));
         setSelectedJob(updatedJob);
+
+        // Update in database if saved
+        if (savedOpportunities.includes(job.id)) {
+          await supabase
+            .from('opportunities')
+            .update({ match_score: result.match_score })
+            .eq('id', job.id);
+        }
       }
     } catch (error) {
       console.error('Analysis failed:', error);
+      toast.error('Analysis failed');
     } finally {
       setAnalyzingId(null);
+    }
+  };
+
+  const handleSaveOpportunity = async (job: Opportunity) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in to save opportunities');
+        return;
+      }
+
+      const { error } = await supabase.from('opportunities').insert({
+        id: job.id,
+        user_id: user.id,
+        position_title: job.title,
+        company_name: job.company,
+        location: job.location,
+        salary_range: job.salary_range,
+        match_score: job.match_score,
+        status: job.status,
+        source: job.source,
+        posted_date: job.posted_date,
+        job_description: job.description
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.info('Opportunity already saved');
+        } else {
+          throw error;
+        }
+      } else {
+        setSavedOpportunities(prev => [...prev, job.id]);
+        toast.success('Opportunity saved');
+      }
+    } catch (error) {
+      console.error('Error saving opportunity:', error);
+      toast.error('Failed to save opportunity');
+    }
+  };
+
+  const handleDeleteOpportunity = async (id: string) => {
+    try {
+      const { error } = await supabase.from('opportunities').delete().eq('id', id);
+      if (error) throw error;
+      
+      setJobs(prev => prev.filter(j => j.id !== id));
+      setSavedOpportunities(prev => prev.filter(i => i !== id));
+      if (selectedJob?.id === id) setSelectedJob(null);
+      toast.success('Opportunity removed');
+    } catch (error) {
+      console.error('Error deleting opportunity:', error);
+      toast.error('Failed to delete');
     }
   };
 
@@ -157,11 +223,10 @@ const OpportunityScanner: React.FC = () => {
       }
 
       if (data?.opportunities && data.opportunities.length > 0) {
-        // Add unique IDs and merge with existing jobs
         const newOpportunities = data.opportunities.map((opp: any, index: number) => ({
           ...opp,
           id: `scan-${Date.now()}-${index}`,
-          match_score: 0
+          match_score: opp.match_score || 0
         }));
         
         setJobs(prev => [...newOpportunities, ...prev]);
@@ -311,80 +376,112 @@ const OpportunityScanner: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}
         <div className="lg:col-span-2 space-y-4">
-          {jobs.map((job) => (
-            <div
-              key={job.id}
-              onClick={() => setSelectedJob(job)}
-              className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:border-primary/50 ${
-                selectedJob?.id === job.id ? 'border-primary' : 'border-border'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-heading font-semibold text-foreground">{job.title}</h3>
-                  <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <Building className="w-4 h-4" />
-                    <span>{job.company}</span>
-                  </div>
-                </div>
-                {job.match_score > 0 ? (
-                  <div className={`px-3 py-1 rounded-full border text-sm font-medium ${getScoreColor(job.match_score)}`}>
-                    {job.match_score}% Match
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-full">
-                    {job.status}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-3 mb-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {job.location}
-                </span>
-                <span className="flex items-center gap-1">
-                  <DollarSign className="w-4 h-4" />
-                  {job.salary_range}
-                </span>
-              </div>
-
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{job.description}</p>
-
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2 text-xs text-muted-foreground">
-                  <span className="px-2 py-1 bg-muted rounded">{job.source}</span>
-                  <span className="px-2 py-1 bg-muted rounded">{job.posted_date}</span>
-                </div>
-                <Button
-                  size="sm"
-                  variant={job.match_score > 0 ? "outline" : "default"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAnalyze(job);
-                  }}
-                  disabled={analyzingId === job.id}
-                >
-                  {analyzingId === job.id ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing
-                    </>
-                  ) : job.match_score > 0 ? (
-                    <>
-                      <Check className="w-4 h-4 mr-2" />
-                      Analyzed
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      AI Analyze
-                    </>
-                  )}
-                </Button>
-              </div>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
             </div>
-          ))}
+          ) : jobs.length === 0 ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No opportunities yet. Click "Scan New" to discover opportunities in your selected regions.</p>
+            </div>
+          ) : (
+            jobs.map((job) => (
+              <div
+                key={job.id}
+                onClick={() => setSelectedJob(job)}
+                className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:border-primary/50 group ${
+                  selectedJob?.id === job.id ? 'border-primary' : 'border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-heading font-semibold text-foreground">{job.title}</h3>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                      <Building className="w-4 h-4" />
+                      <span>{job.company}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {job.match_score > 0 ? (
+                      <div className={`px-3 py-1 rounded-full border text-sm font-medium ${getScoreColor(job.match_score)}`}>
+                        {job.match_score}% Match
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-full">
+                        {job.status}
+                      </span>
+                    )}
+                    {!savedOpportunities.includes(job.id) ? (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => { e.stopPropagation(); handleSaveOpportunity(job); }}
+                        className="opacity-0 group-hover:opacity-100 h-8 w-8"
+                      >
+                        <Save className="w-4 h-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteOpportunity(job.id); }}
+                        className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 mb-3 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {job.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <DollarSign className="w-4 h-4" />
+                    {job.salary_range}
+                  </span>
+                </div>
+
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{job.description}</p>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    <span className="px-2 py-1 bg-muted rounded">{job.source}</span>
+                    <span className="px-2 py-1 bg-muted rounded">{job.posted_date}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={job.match_score > 0 ? "outline" : "default"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAnalyze(job);
+                    }}
+                    disabled={analyzingId === job.id}
+                  >
+                    {analyzingId === job.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Analyzing
+                      </>
+                    ) : job.match_score > 0 ? (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        Analyzed
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Analyze
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Analysis Panel */}
@@ -396,7 +493,6 @@ const OpportunityScanner: React.FC = () => {
 
           {selectedJob?.ai_analysis ? (
             <div className="space-y-6">
-              {/* Scores */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-muted/30 rounded-lg">
                   <div className={`text-2xl font-bold ${selectedJob.match_score >= 70 ? 'text-success' : 'text-primary'}`}>
@@ -412,7 +508,6 @@ const OpportunityScanner: React.FC = () => {
                 </div>
               </div>
 
-              {/* Growth & Urgency */}
               <div className="flex gap-2">
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                   selectedJob.growth_potential === 'High' ? 'bg-success/10 text-success border border-success/30' :
@@ -430,13 +525,11 @@ const OpportunityScanner: React.FC = () => {
                 </span>
               </div>
 
-              {/* Fit Summary */}
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-2">Fit Summary</h4>
                 <p className="text-sm text-muted-foreground">{selectedJob.ai_analysis.fit}</p>
               </div>
 
-              {/* Gaps */}
               {selectedJob.ai_analysis.gaps.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-foreground mb-2">Skill Gaps to Address</h4>
@@ -450,7 +543,6 @@ const OpportunityScanner: React.FC = () => {
                 </div>
               )}
 
-              {/* Strategy */}
               <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
                 <h4 className="text-sm font-medium text-foreground mb-2">Recommended Strategy</h4>
                 <p className="text-sm text-muted-foreground">{selectedJob.ai_analysis.strategy}</p>

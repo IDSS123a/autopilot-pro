@@ -1,107 +1,74 @@
-import React, { useState } from 'react';
-import { MessageSquare, Mail, Send, Clock, Check, AlertCircle, Loader2, Copy, Sparkles, User, Building, Calendar, Plus, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MessageSquare, Mail, Send, Clock, Check, AlertCircle, Loader2, Copy, Sparkles, User, Building, Calendar, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useApp } from '@/contexts/AppContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Communication {
   id: string;
-  contactName: string;
-  company: string;
-  type: 'email' | 'linkedin' | 'call';
-  subject: string;
-  message: string;
-  status: 'draft' | 'sent' | 'replied' | 'pending';
-  date: string;
-  direction: 'outbound' | 'inbound';
+  contact_name: string;
+  company_name: string | null;
+  communication_type: string | null;
+  subject: string | null;
+  message_content: string | null;
+  direction: string | null;
+  communication_date: string | null;
+  created_at: string;
 }
-
-const MOCK_COMMUNICATIONS: Communication[] = [
-  {
-    id: '1',
-    contactName: 'Sarah Jenkins',
-    company: 'Amrop Adria',
-    type: 'linkedin',
-    subject: 'Connection Request',
-    message: 'Hi Sarah, I noticed your expertise in executive search for banking sector...',
-    status: 'sent',
-    date: '2024-01-15',
-    direction: 'outbound'
-  },
-  {
-    id: '2',
-    contactName: 'Dr. Michael Ross',
-    company: 'Stanton Chase DACH',
-    type: 'email',
-    subject: 'Re: CTO Opportunity Discussion',
-    message: 'Thank you for your interest. I would be happy to discuss the CTO role...',
-    status: 'replied',
-    date: '2024-01-14',
-    direction: 'inbound'
-  },
-  {
-    id: '3',
-    contactName: 'Elena Weber',
-    company: 'FutureFin Global',
-    type: 'email',
-    subject: 'Follow-up: Executive Search Meeting',
-    message: 'Following up on our conversation about FinTech leadership roles...',
-    status: 'pending',
-    date: '2024-01-12',
-    direction: 'outbound'
-  }
-];
-
-const EMAIL_TEMPLATES = [
-  { id: 'intro', name: 'Introduction', subject: 'Executive Introduction - [Your Name]' },
-  { id: 'followup', name: 'Follow-up', subject: 'Following Up - [Position/Company]' },
-  { id: 'thankyou', name: 'Thank You', subject: 'Thank You for the Conversation' },
-  { id: 'interest', name: 'Express Interest', subject: 'Interest in [Position] Opportunity' }
-];
 
 const CommunicationHub: React.FC = () => {
   const { userProfile } = useApp();
   const { toast } = useToast();
-  const [communications, setCommunications] = useState<Communication[]>(MOCK_COMMUNICATIONS);
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedComm, setSelectedComm] = useState<Communication | null>(null);
-  const [filter, setFilter] = useState<'all' | 'sent' | 'replied' | 'pending'>('all');
+  const [filter, setFilter] = useState<'all' | 'email' | 'linkedin'>('all');
   const [isComposing, setIsComposing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Compose form state
   const [composeData, setComposeData] = useState({
     contactName: '',
     company: '',
-    type: 'email' as 'email' | 'linkedin' | 'call',
+    type: 'email' as 'email' | 'linkedin',
     subject: '',
     message: ''
   });
 
+  useEffect(() => {
+    loadCommunications();
+  }, []);
+
+  const loadCommunications = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from('communications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('communication_date', { ascending: false });
+
+        if (error) throw error;
+        setCommunications(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading communications:', error);
+      toast({ title: 'Error', description: 'Failed to load communications', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredComms = communications.filter(c => 
-    filter === 'all' || c.status === filter
+    filter === 'all' || c.communication_type === filter
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'sent': return 'bg-primary/10 text-primary border-primary/30';
-      case 'replied': return 'bg-success/10 text-success border-success/30';
-      case 'pending': return 'bg-accent/10 text-accent border-accent/30';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'sent': return <Send className="w-3 h-3" />;
-      case 'replied': return <Check className="w-3 h-3" />;
-      case 'pending': return <Clock className="w-3 h-3" />;
-      default: return <AlertCircle className="w-3 h-3" />;
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = (type: string | null) => {
     switch (type) {
       case 'email': return <Mail className="w-4 h-4" />;
       case 'linkedin': return <MessageSquare className="w-4 h-4" />;
@@ -117,59 +84,95 @@ const CommunicationHub: React.FC = () => {
     
     setIsGenerating(true);
     try {
-      // Simulate AI generation (in production, this would call the AI service)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { data, error } = await supabase.functions.invoke('ai-chat', {
+        body: {
+          messages: [
+            { role: 'system', content: 'You are an expert executive communication specialist. Write professional, compelling outreach messages.' },
+            { role: 'user', content: `Write a professional ${composeData.type === 'linkedin' ? 'LinkedIn message' : 'email'} to ${composeData.contactName} at ${composeData.company}.
+
+Context about the sender:
+- Name: ${userProfile.name}
+- Title: ${userProfile.title}
+- Experience: ${userProfile.bio}
+- Target Role: ${userProfile.targetRole}
+- Industries: ${userProfile.industries}
+
+Write a compelling, personalized message that:
+1. Opens with a relevant connection point
+2. Briefly highlights key qualifications
+3. Expresses genuine interest in their organization
+4. Ends with a clear call-to-action
+
+Keep it under 200 words, professional but warm. No generic templates.` }
+          ]
+        }
+      });
+
+      if (error) throw error;
       
-      const generatedMessage = `Dear ${composeData.contactName},
-
-I hope this message finds you well. I am reaching out regarding executive leadership opportunities at ${composeData.company}.
-
-With over 15 years of experience in ${userProfile.industries || 'technology and digital transformation'}, I have successfully led organizations through significant growth phases and strategic transformations.
-
-I would welcome the opportunity to discuss how my background in ${userProfile.targetRole || 'executive leadership'} could contribute to ${composeData.company}'s strategic objectives.
-
-Would you be available for a brief conversation next week?
-
-Best regards,
-${userProfile.name}
-${userProfile.title}`;
-
       setComposeData(prev => ({
         ...prev,
-        message: generatedMessage,
-        subject: `Executive Introduction - ${userProfile.name}`
+        message: data.content,
+        subject: composeData.type === 'email' ? `Executive Introduction - ${userProfile.name}` : ''
       }));
       
-      toast({ title: 'Message generated', description: 'AI has drafted your message' });
+      toast({ title: 'Message generated', description: 'AI has drafted your personalized message' });
     } catch (error) {
+      console.error('AI generation error:', error);
       toast({ title: 'Error', description: 'Failed to generate message', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!composeData.message || !composeData.contactName) {
       toast({ title: 'Missing info', description: 'Please complete all required fields', variant: 'destructive' });
       return;
     }
 
-    const newComm: Communication = {
-      id: Date.now().toString(),
-      contactName: composeData.contactName,
-      company: composeData.company,
-      type: composeData.type,
-      subject: composeData.subject,
-      message: composeData.message,
-      status: 'sent',
-      date: new Date().toISOString().split('T')[0],
-      direction: 'outbound'
-    };
+    setIsSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-    setCommunications([newComm, ...communications]);
-    setComposeData({ contactName: '', company: '', type: 'email', subject: '', message: '' });
-    setIsComposing(false);
-    toast({ title: 'Message sent', description: `Your message to ${composeData.contactName} has been sent` });
+      const { error } = await supabase.from('communications').insert({
+        user_id: user.id,
+        contact_name: composeData.contactName,
+        company_name: composeData.company,
+        communication_type: composeData.type,
+        subject: composeData.subject,
+        message_content: composeData.message,
+        direction: 'outbound',
+        communication_date: new Date().toISOString()
+      });
+
+      if (error) throw error;
+
+      setComposeData({ contactName: '', company: '', type: 'email', subject: '', message: '' });
+      setIsComposing(false);
+      loadCommunications();
+      toast({ title: 'Message saved', description: `Your message to ${composeData.contactName} has been saved` });
+    } catch (error) {
+      console.error('Save error:', error);
+      toast({ title: 'Error', description: 'Failed to save message', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase.from('communications').delete().eq('id', id);
+      if (error) throw error;
+      setCommunications(prev => prev.filter(c => c.id !== id));
+      if (selectedComm?.id === id) setSelectedComm(null);
+      toast({ title: 'Deleted', description: 'Communication removed' });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({ title: 'Error', description: 'Failed to delete', variant: 'destructive' });
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -177,9 +180,13 @@ ${userProfile.title}`;
     toast({ title: 'Copied', description: 'Message copied to clipboard' });
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-heading font-bold text-foreground">Communication Hub</h1>
@@ -191,13 +198,16 @@ ${userProfile.title}`;
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total Sent', value: communications.filter(c => c.direction === 'outbound').length, color: 'text-primary' },
-          { label: 'Replies', value: communications.filter(c => c.status === 'replied').length, color: 'text-success' },
-          { label: 'Pending', value: communications.filter(c => c.status === 'pending').length, color: 'text-accent' },
-          { label: 'Response Rate', value: `${Math.round((communications.filter(c => c.status === 'replied').length / communications.length) * 100)}%`, color: 'text-foreground' }
+          { label: 'Total Messages', value: communications.length, color: 'text-primary' },
+          { label: 'Emails', value: communications.filter(c => c.communication_type === 'email').length, color: 'text-success' },
+          { label: 'LinkedIn', value: communications.filter(c => c.communication_type === 'linkedin').length, color: 'text-accent' },
+          { label: 'This Week', value: communications.filter(c => {
+            const date = new Date(c.communication_date || c.created_at);
+            const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+            return date > weekAgo;
+          }).length, color: 'text-foreground' }
         ].map((stat, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-4 text-center">
             <div className={`text-2xl font-bold ${stat.color}`}>{stat.value}</div>
@@ -206,57 +216,68 @@ ${userProfile.title}`;
         ))}
       </div>
 
-      {/* Filter */}
       <div className="flex gap-2">
         <Button variant={filter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('all')}>All</Button>
-        <Button variant={filter === 'sent' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('sent')}>Sent</Button>
-        <Button variant={filter === 'replied' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('replied')}>Replied</Button>
-        <Button variant={filter === 'pending' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('pending')}>Pending</Button>
+        <Button variant={filter === 'email' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('email')}>Email</Button>
+        <Button variant={filter === 'linkedin' ? 'default' : 'outline'} size="sm" onClick={() => setFilter('linkedin')}>LinkedIn</Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Communications List */}
         <div className="space-y-3">
-          {filteredComms.map((comm) => (
-            <div
-              key={comm.id}
-              onClick={() => { setSelectedComm(comm); setIsComposing(false); }}
-              className={`bg-card border rounded-xl p-4 cursor-pointer transition-all hover:border-primary/50 ${
-                selectedComm?.id === comm.id ? 'border-primary' : 'border-border'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{comm.contactName}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Building className="w-3 h-3" />
-                      {comm.company}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {getTypeIcon(comm.type)}
-                  <span className={`text-xs px-2 py-1 rounded-full border flex items-center gap-1 ${getStatusColor(comm.status)}`}>
-                    {getStatusIcon(comm.status)}
-                    {comm.status}
-                  </span>
-                </div>
-              </div>
-              <p className="text-sm font-medium text-foreground mb-1">{comm.subject}</p>
-              <p className="text-xs text-muted-foreground line-clamp-2">{comm.message}</p>
-              <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                <Calendar className="w-3 h-3" />
-                {comm.date}
-              </div>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
             </div>
-          ))}
+          ) : filteredComms.length === 0 ? (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+              <MessageSquare className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No communications yet. Start by composing a new message.</p>
+            </div>
+          ) : (
+            filteredComms.map((comm) => (
+              <div
+                key={comm.id}
+                onClick={() => { setSelectedComm(comm); setIsComposing(false); }}
+                className={`bg-card border rounded-xl p-4 cursor-pointer transition-all hover:border-primary/50 group ${
+                  selectedComm?.id === comm.id ? 'border-primary' : 'border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">{comm.contact_name}</h3>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Building className="w-3 h-3" />
+                        {comm.company_name || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getTypeIcon(comm.communication_type)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleDelete(comm.id, e)}
+                      className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">{comm.subject || 'No subject'}</p>
+                <p className="text-xs text-muted-foreground line-clamp-2">{comm.message_content}</p>
+                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                  <Calendar className="w-3 h-3" />
+                  {formatDate(comm.communication_date)}
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
-        {/* Detail / Compose Panel */}
         <div className="bg-card border border-border rounded-xl p-6">
           {isComposing ? (
             <div className="space-y-4">
@@ -289,24 +310,13 @@ ${userProfile.title}`;
                 ))}
               </div>
 
-              <Input
-                placeholder="Subject"
-                value={composeData.subject}
-                onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
-              />
-
-              <div className="flex gap-2 flex-wrap">
-                {EMAIL_TEMPLATES.map((template) => (
-                  <Button
-                    key={template.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setComposeData(prev => ({ ...prev, subject: template.subject }))}
-                  >
-                    {template.name}
-                  </Button>
-                ))}
-              </div>
+              {composeData.type === 'email' && (
+                <Input
+                  placeholder="Subject"
+                  value={composeData.subject}
+                  onChange={(e) => setComposeData(prev => ({ ...prev, subject: e.target.value }))}
+                />
+              )}
 
               <Textarea
                 placeholder="Your message..."
@@ -320,9 +330,9 @@ ${userProfile.title}`;
                   {isGenerating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                   AI Generate
                 </Button>
-                <Button onClick={handleSendMessage} className="flex-1">
-                  <Send className="w-4 h-4 mr-2" />
-                  Send Message
+                <Button onClick={handleSendMessage} className="flex-1" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  Save Message
                 </Button>
               </div>
             </div>
@@ -330,33 +340,31 @@ ${userProfile.title}`;
             <div className="space-y-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="font-heading font-semibold text-foreground">{selectedComm.subject}</h3>
+                  <h3 className="font-heading font-semibold text-foreground">{selectedComm.subject || 'No subject'}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedComm.direction === 'outbound' ? 'To: ' : 'From: '}
-                    {selectedComm.contactName} at {selectedComm.company}
+                    To: {selectedComm.contact_name} at {selectedComm.company_name || 'N/A'}
                   </p>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full border flex items-center gap-1 ${getStatusColor(selectedComm.status)}`}>
-                  {getStatusIcon(selectedComm.status)}
-                  {selectedComm.status}
+                <span className="text-xs px-2 py-1 rounded-full border bg-primary/10 text-primary">
+                  {selectedComm.communication_type}
                 </span>
               </div>
 
               <div className="p-4 bg-muted/30 rounded-lg">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{selectedComm.message}</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">{selectedComm.message_content}</p>
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => copyToClipboard(selectedComm.message)}>
+                <Button variant="outline" onClick={() => copyToClipboard(selectedComm.message_content || '')}>
                   <Copy className="w-4 h-4 mr-2" />
                   Copy
                 </Button>
                 <Button onClick={() => {
                   setComposeData({
-                    contactName: selectedComm.contactName,
-                    company: selectedComm.company,
-                    type: selectedComm.type,
-                    subject: `Re: ${selectedComm.subject}`,
+                    contactName: selectedComm.contact_name,
+                    company: selectedComm.company_name || '',
+                    type: (selectedComm.communication_type as 'email' | 'linkedin') || 'email',
+                    subject: `Re: ${selectedComm.subject || ''}`,
                     message: ''
                   });
                   setIsComposing(true);

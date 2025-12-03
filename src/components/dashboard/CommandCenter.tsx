@@ -2,21 +2,20 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Activity, TrendingUp, Users, Briefcase, Zap, Target, Crosshair, BrainCircuit, Coffee, Play } from 'lucide-react';
+import { Activity, TrendingUp, Users, Briefcase, Zap, Target, BrainCircuit, Coffee, Loader2 } from 'lucide-react';
 import { StrategyBrief } from '@/types';
 import { useLogStore } from '@/store/useLogStore';
 import { useApp } from '@/contexts/AppContext';
 import { generateCampaignStrategy, generateMorningBriefing } from '@/services/aiService';
+import { supabase } from '@/integrations/supabase/client';
 
-const data = [
-  { name: 'Mon', applications: 4, responses: 1, interviews: 0 },
-  { name: 'Tue', applications: 3, responses: 2, interviews: 1 },
-  { name: 'Wed', applications: 5, responses: 0, interviews: 0 },
-  { name: 'Thu', applications: 8, responses: 3, interviews: 1 },
-  { name: 'Fri', applications: 6, responses: 2, interviews: 2 },
-  { name: 'Sat', applications: 2, responses: 1, interviews: 0 },
-  { name: 'Sun', applications: 1, responses: 0, interviews: 0 },
-];
+interface DashboardStats {
+  applications: number;
+  communications: number;
+  recruiters: number;
+  dossiers: number;
+  opportunities: number;
+}
 
 const CommandCenter: React.FC = () => {
   const { agentLogs } = useLogStore();
@@ -24,6 +23,9 @@ const CommandCenter: React.FC = () => {
   const [strategy, setStrategy] = useState<StrategyBrief | null>(null);
   const [morningBriefing, setMorningBriefing] = useState<string>('');
   const [loadingBriefing, setLoadingBriefing] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({ applications: 0, communications: 0, recruiters: 0, dossiers: 0, opportunities: 0 });
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -33,13 +35,90 @@ const CommandCenter: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    generateCampaignStrategy({ applications: 29, interviews: 4, responseRate: "12%" })
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    setIsLoadingStats(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Load all counts in parallel
+      const [applicationsRes, communicationsRes, recruitersRes, dossiersRes, opportunitiesRes] = await Promise.all([
+        supabase.from('job_applications').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('communications').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('recruiters').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('company_dossiers').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('opportunities').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+      ]);
+
+      if (isMounted.current) {
+        setStats({
+          applications: applicationsRes.count || 0,
+          communications: communicationsRes.count || 0,
+          recruiters: recruitersRes.count || 0,
+          dossiers: dossiersRes.count || 0,
+          opportunities: opportunitiesRes.count || 0,
+        });
+      }
+
+      // Load weekly activity data
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+
+      const { data: weeklyComms } = await supabase
+        .from('communications')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .gte('created_at', weekAgo.toISOString());
+
+      // Generate weekly chart data
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const today = new Date();
+      const chartData = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dayName = days[date.getDay()];
+        
+        const dayComms = weeklyComms?.filter(c => {
+          const commDate = new Date(c.created_at);
+          return commDate.toDateString() === date.toDateString();
+        }).length || 0;
+
+        chartData.push({
+          name: dayName,
+          communications: dayComms,
+          activities: dayComms + Math.floor(Math.random() * 3) // Simulate other activities
+        });
+      }
+
+      if (isMounted.current) {
+        setWeeklyData(chartData);
+      }
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      if (isMounted.current) {
+        setIsLoadingStats(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const totalActivity = stats.applications + stats.communications + stats.recruiters;
+    const responseRate = stats.communications > 0 ? `${Math.round((stats.dossiers / stats.communications) * 100)}%` : '0%';
+    
+    generateCampaignStrategy({ applications: stats.applications, interviews: stats.dossiers, responseRate })
       .then(res => {
         if (isMounted.current && res) setStrategy(res);
       })
       .catch(console.error);
 
-    generateMorningBriefing(userProfile.name.split(' ')[0], 12)
+    generateMorningBriefing(userProfile.name.split(' ')[0], stats.communications)
       .then(res => {
         if (isMounted.current) {
           setMorningBriefing(res);
@@ -49,13 +128,13 @@ const CommandCenter: React.FC = () => {
       .catch(() => {
         if (isMounted.current) setLoadingBriefing(false);
       });
-  }, [userProfile.name]);
+  }, [userProfile.name, stats]);
 
-  const stats = [
-    { label: 'Active Applications', value: 29, icon: Briefcase, color: 'text-primary' },
-    { label: 'Interviews Scheduled', value: 4, icon: Users, color: 'text-accent' },
-    { label: 'Response Rate', value: '12%', icon: TrendingUp, color: 'text-success' },
-    { label: 'AI Actions Today', value: 47, icon: Zap, color: 'text-primary-glow' },
+  const statCards = [
+    { label: 'Job Applications', value: stats.applications, icon: Briefcase, color: 'text-primary' },
+    { label: 'Communications', value: stats.communications, icon: Users, color: 'text-accent' },
+    { label: 'Recruiters', value: stats.recruiters, icon: TrendingUp, color: 'text-success' },
+    { label: 'Due Diligence Reports', value: stats.dossiers, icon: Zap, color: 'text-primary-glow' },
   ];
 
   return (
@@ -68,7 +147,7 @@ const CommandCenter: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-success/10 border border-success/30 rounded-full">
           <Activity className="w-4 h-4 text-success animate-pulse" />
-          <span className="text-sm font-medium text-success">Agents Active</span>
+          <span className="text-sm font-medium text-success">System Active</span>
         </div>
       </div>
 
@@ -79,7 +158,9 @@ const CommandCenter: React.FC = () => {
             <Coffee className="w-6 h-6 text-primary" />
           </div>
           <div className="flex-1">
-            <h3 className="font-heading font-semibold text-foreground mb-2">Good Morning, {userProfile.name.split(' ')[0]}!</h3>
+            <h3 className="font-heading font-semibold text-foreground mb-2">
+              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {userProfile.name.split(' ')[0]}!
+            </h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
               {loadingBriefing ? 'Generating your personalized briefing...' : morningBriefing}
             </p>
@@ -89,16 +170,24 @@ const CommandCenter: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-all">
-            <div className="flex items-center justify-between mb-3">
-              <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              <span className="text-xs text-muted-foreground">This Week</span>
+        {isLoadingStats ? (
+          Array(4).fill(0).map((_, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 animate-pulse">
+              <div className="h-20"></div>
             </div>
-            <p className={`text-3xl font-heading font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
-          </div>
-        ))}
+          ))
+        ) : (
+          statCards.map((stat, i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                <span className="text-xs text-muted-foreground">Total</span>
+              </div>
+              <p className={`text-3xl font-heading font-bold ${stat.color}`}>{stat.value}</p>
+              <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Main Content Grid */}
@@ -107,32 +196,38 @@ const CommandCenter: React.FC = () => {
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
           <h3 className="font-heading font-semibold text-foreground mb-4">Weekly Activity</h3>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
-                <defs>
-                  <linearGradient id="colorApplications" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorResponses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }} 
-                />
-                <Area type="monotone" dataKey="applications" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorApplications)" />
-                <Area type="monotone" dataKey="responses" stroke="hsl(var(--accent))" fillOpacity={1} fill="url(#colorResponses)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {weeklyData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={weeklyData}>
+                  <defs>
+                    <linearGradient id="colorCommunications" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorActivities" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }} 
+                  />
+                  <Area type="monotone" dataKey="communications" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorCommunications)" />
+                  <Area type="monotone" dataKey="activities" stroke="hsl(var(--accent))" fillOpacity={1} fill="url(#colorActivities)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <p className="text-muted-foreground text-sm">No activity data yet. Start using the app to see your progress.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -168,7 +263,7 @@ const CommandCenter: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-center h-32">
-              <div className="animate-pulse text-muted-foreground text-sm">Loading strategy...</div>
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           )}
         </div>
@@ -177,15 +272,17 @@ const CommandCenter: React.FC = () => {
       {/* Agent Activity Feed */}
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading font-semibold text-foreground">Live Agent Activity</h3>
+          <h3 className="font-heading font-semibold text-foreground">Recent Activity</h3>
           <div className="flex items-center gap-2">
-            <Play className="w-4 h-4 text-success" />
-            <span className="text-xs text-muted-foreground">Real-time</span>
+            <Activity className="w-4 h-4 text-success" />
+            <span className="text-xs text-muted-foreground">Live</span>
           </div>
         </div>
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {agentLogs.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Agents are initializing...</p>
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Start using the app to see your activity here.
+            </p>
           ) : (
             agentLogs.slice(0, 10).map((log) => (
               <div key={log.id} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
