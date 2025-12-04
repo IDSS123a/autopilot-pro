@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { User, Linkedin, Mail, Loader2, Copy, Check, Sparkles, Plus, Trash2, Star, Building } from 'lucide-react';
+import { User, Linkedin, Mail, Loader2, Copy, Check, Sparkles, Plus, Trash2, Star, Building, Search, X, ExternalLink } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { generateOutreachSequence } from '@/services/aiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Recruiter {
   id: string;
@@ -22,6 +22,32 @@ interface Recruiter {
   created_at: string;
 }
 
+interface RecruiterResearch {
+  profile_summary: string;
+  company_info?: {
+    name: string;
+    type: string;
+    specialization: string;
+    reputation: string;
+  };
+  focus_areas?: {
+    industries: string[];
+    roles: string[];
+    seniority_levels: string[];
+    geographic_focus: string[];
+  };
+  approach_strategy?: {
+    best_contact_method: string;
+    timing: string;
+    tone: string;
+    key_points_to_highlight: string[];
+  };
+  engagement_tips?: string[];
+  red_flags_to_avoid?: string[];
+  sample_opening?: string;
+  follow_up_strategy?: string;
+}
+
 const RecruiterAgent: React.FC = () => {
   const { userProfile } = useApp();
   const { toast } = useToast();
@@ -29,10 +55,13 @@ const RecruiterAgent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRecruiter, setSelectedRecruiter] = useState<Recruiter | null>(null);
   const [outreach, setOutreach] = useState<any>(null);
+  const [research, setResearch] = useState<RecruiterResearch | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isResearching, setIsResearching] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'outreach' | 'research'>('outreach');
   
   const [newRecruiter, setNewRecruiter] = useState({
     name: '',
@@ -111,6 +140,7 @@ const RecruiterAgent: React.FC = () => {
       if (selectedRecruiter?.id === id) {
         setSelectedRecruiter(null);
         setOutreach(null);
+        setResearch(null);
       }
       toast({ title: 'Deleted', description: 'Recruiter removed' });
     } catch (error) {
@@ -121,6 +151,7 @@ const RecruiterAgent: React.FC = () => {
 
   const handleGenerateOutreach = async (recruiter: Recruiter) => {
     setSelectedRecruiter(recruiter);
+    setActiveTab('outreach');
     setIsGenerating(true);
     try {
       const result = await generateOutreachSequence(
@@ -134,6 +165,36 @@ const RecruiterAgent: React.FC = () => {
       toast({ title: 'Error', description: 'Failed to generate outreach sequence', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleResearchRecruiter = async (recruiter: Recruiter) => {
+    setSelectedRecruiter(recruiter);
+    setActiveTab('research');
+    setIsResearching(true);
+    setResearch(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('research-recruiter', {
+        body: {
+          recruiterName: recruiter.name,
+          company: recruiter.company,
+          linkedinUrl: recruiter.linkedin_url,
+          email: recruiter.email
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.research) {
+        setResearch(data.research);
+        toast({ title: 'Research complete', description: `Profile analyzed for ${recruiter.name}` });
+      }
+    } catch (error) {
+      console.error('Research failed:', error);
+      toast({ title: 'Error', description: 'Failed to research recruiter', variant: 'destructive' });
+    } finally {
+      setIsResearching(false);
     }
   };
 
@@ -163,7 +224,7 @@ const RecruiterAgent: React.FC = () => {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-heading font-bold text-foreground">Recruiter Agent</h1>
-          <p className="text-muted-foreground mt-1">AI-powered recruiter relationship management</p>
+          <p className="text-muted-foreground mt-1">AI-powered recruiter research and relationship management</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -268,7 +329,20 @@ const RecruiterAgent: React.FC = () => {
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex justify-end mt-4">
+                <div className="flex justify-end mt-4 gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={(e) => { e.stopPropagation(); handleResearchRecruiter(r); }} 
+                    disabled={isResearching && selectedRecruiter?.id === r.id}
+                  >
+                    {isResearching && selectedRecruiter?.id === r.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Search className="w-4 h-4 mr-2" />
+                    )}
+                    Research
+                  </Button>
                   <Button 
                     size="sm" 
                     onClick={(e) => { e.stopPropagation(); handleGenerateOutreach(r); }} 
@@ -279,7 +353,7 @@ const RecruiterAgent: React.FC = () => {
                     ) : (
                       <Sparkles className="w-4 h-4 mr-2" />
                     )}
-                    Generate Outreach
+                    Outreach
                   </Button>
                 </div>
               </div>
@@ -288,9 +362,143 @@ const RecruiterAgent: React.FC = () => {
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6">
-          <h3 className="font-heading font-semibold text-foreground mb-4">AI-Generated Outreach Sequence</h3>
-          {outreach ? (
+          {selectedRecruiter && (
+            <div className="flex gap-2 mb-4">
+              <Button 
+                variant={activeTab === 'outreach' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setActiveTab('outreach')}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Outreach
+              </Button>
+              <Button 
+                variant={activeTab === 'research' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setActiveTab('research')}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Research
+              </Button>
+            </div>
+          )}
+
+          {activeTab === 'research' && research ? (
+            <ScrollArea className="h-[600px] pr-4">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-heading font-semibold text-foreground mb-2">Profile Summary</h3>
+                  <p className="text-sm text-muted-foreground">{research.profile_summary}</p>
+                </div>
+
+                {research.company_info && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2 flex items-center gap-2">
+                      <Building className="w-4 h-4" />
+                      Company Info
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-muted-foreground">Type:</span> {research.company_info.type}</div>
+                      <div><span className="text-muted-foreground">Specialization:</span> {research.company_info.specialization}</div>
+                      <div className="col-span-2"><span className="text-muted-foreground">Reputation:</span> {research.company_info.reputation}</div>
+                    </div>
+                  </div>
+                )}
+
+                {research.focus_areas && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Focus Areas</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Industries:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {research.focus_areas.industries?.map((ind, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded">{ind}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Roles:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {research.focus_areas.roles?.map((role, i) => (
+                            <span key={i} className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded">{role}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Geographic Focus:</span> {research.focus_areas.geographic_focus?.join(', ')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {research.approach_strategy && (
+                  <div className="p-4 bg-success/10 border border-success/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">How to Approach</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><span className="text-muted-foreground">Best Method:</span> {research.approach_strategy.best_contact_method}</div>
+                      <div><span className="text-muted-foreground">Best Timing:</span> {research.approach_strategy.timing}</div>
+                      <div><span className="text-muted-foreground">Tone:</span> {research.approach_strategy.tone}</div>
+                      <div>
+                        <span className="text-muted-foreground">Key Points to Highlight:</span>
+                        <ul className="list-disc list-inside mt-1 text-foreground">
+                          {research.approach_strategy.key_points_to_highlight?.map((point, i) => (
+                            <li key={i}>{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {research.engagement_tips && research.engagement_tips.length > 0 && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Engagement Tips</h4>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                      {research.engagement_tips.map((tip, i) => (
+                        <li key={i}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {research.red_flags_to_avoid && research.red_flags_to_avoid.length > 0 && (
+                  <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Things to Avoid</h4>
+                    <ul className="list-disc list-inside text-sm text-destructive space-y-1">
+                      {research.red_flags_to_avoid.map((flag, i) => (
+                        <li key={i}>{flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {research.sample_opening && (
+                  <div className="p-4 bg-primary/10 border border-primary/30 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-medium text-foreground">Sample Opening Message</h4>
+                      <button 
+                        onClick={() => copyToClipboard(research.sample_opening!, 'sample')} 
+                        className="text-primary hover:text-primary-glow"
+                      >
+                        {copiedField === 'sample' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{research.sample_opening}</p>
+                  </div>
+                )}
+
+                {research.follow_up_strategy && (
+                  <div className="p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium text-foreground mb-2">Follow-up Strategy</h4>
+                    <p className="text-sm text-muted-foreground">{research.follow_up_strategy}</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          ) : activeTab === 'outreach' && outreach ? (
             <div className="space-y-4">
+              <h3 className="font-heading font-semibold text-foreground">AI-Generated Outreach Sequence</h3>
               {['connection_request', 'initial_message', 'follow_up_1', 'follow_up_2'].map((key) => (
                 <div key={key} className="p-4 bg-muted/30 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
@@ -319,21 +527,27 @@ const RecruiterAgent: React.FC = () => {
                 {selectedRecruiter.linkedin_url && (
                   <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                     <Linkedin className="w-3 h-3" /> 
-                    <a href={selectedRecruiter.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                      LinkedIn Profile
+                    <a href={selectedRecruiter.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1">
+                      LinkedIn Profile <ExternalLink className="w-3 h-3" />
                     </a>
                   </p>
                 )}
               </div>
-              <Button onClick={() => handleGenerateOutreach(selectedRecruiter)} disabled={isGenerating} className="w-full">
-                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                Generate Personalized Outreach
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => handleResearchRecruiter(selectedRecruiter)} disabled={isResearching} className="flex-1">
+                  {isResearching ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
+                  Research Recruiter
+                </Button>
+                <Button onClick={() => handleGenerateOutreach(selectedRecruiter)} disabled={isGenerating} variant="outline" className="flex-1">
+                  {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Generate Outreach
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="text-center py-12">
               <Mail className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground text-sm">Select a recruiter to view details and generate outreach</p>
+              <p className="text-muted-foreground text-sm">Select a recruiter to research and generate outreach</p>
             </div>
           )}
         </div>

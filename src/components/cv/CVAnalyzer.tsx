@@ -446,15 +446,10 @@ Responsibilities:
                 <FileText className="w-5 h-5 text-primary" />
                 <h3 className="font-heading font-semibold text-foreground">Your CV</h3>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={triggerFileUpload} disabled={isParsing}>
-                  {isParsing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                  {isParsing ? 'Parsing...' : 'Upload PDF'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={fillMockCV}>
-                  Load Sample
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={triggerFileUpload} disabled={isParsing}>
+                {isParsing ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                {isParsing ? 'Parsing...' : 'Upload PDF'}
+              </Button>
               <input
                 type="file"
                 ref={fileInputRef}

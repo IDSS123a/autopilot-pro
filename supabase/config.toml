@@ -6,5 +6,11 @@ verify_jwt = false
 [functions.analyze-cv]
 verify_jwt = false
 
-[functions.analyze-cv]
-verify_jwt = true
+[functions.parse-pdf]
+verify_jwt = false
+
+[functions.scan-opportunities]
+verify_jwt = false
+
+[functions.research-recruiter]
+verify_jwt = false

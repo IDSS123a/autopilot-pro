@@ -61,7 +61,7 @@ const OpportunityScanner: React.FC = () => {
           .from('opportunities')
           .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .order('match_score', { ascending: false, nullsFirst: false });
 
         if (error) throw error;
         
@@ -229,8 +229,10 @@ const OpportunityScanner: React.FC = () => {
           match_score: opp.match_score || 0
         }));
         
-        setJobs(prev => [...newOpportunities, ...prev]);
-        toast.success(`Found ${newOpportunities.length} new opportunities!`);
+        // Sort by match score (highest first)
+        const allJobs = [...newOpportunities, ...jobs].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+        setJobs(allJobs);
+        toast.success(`Found ${newOpportunities.length} new opportunities from LinkedIn, Indeed, Glassdoor and more!`);
       } else {
         toast.info('No new opportunities found for selected regions');
       }
