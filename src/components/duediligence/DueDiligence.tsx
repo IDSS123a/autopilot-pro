@@ -352,6 +352,29 @@ const DueDiligence: React.FC = () => {
                 </ul>
               </div>
             </div>
+
+            {/* Sources Section */}
+            {dossier.sources && dossier.sources.length > 0 && (
+              <div className="mt-6 pt-4 border-t border-border">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                  Research Sources
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {dossier.sources.map((source, i) => (
+                    <a
+                      key={i}
+                      href={source.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12">
