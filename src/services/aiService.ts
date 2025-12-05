@@ -237,18 +237,63 @@ export async function generateCompanyDossier(
   industry: string,
   signal?: AbortSignal
 ): Promise<CompanyDossier | null> {
-  const systemPrompt = `You are a senior M&A due diligence analyst. Always respond with valid JSON.`;
-  const prompt = PROMPTS.COMPANY_DOSSIER(companyName, industry);
+  const RESEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-company`;
 
   try {
-    const response = await callAI(prompt, systemPrompt);
-    return extractJSON(response);
+    // Use the enhanced research function with Firecrawl
+    const response = await fetch(RESEARCH_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ companyName, industry }),
+      signal,
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      if (response.status === 402) {
+        throw new Error('Payment required. Please add funds to continue.');
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Research service error');
+    }
+
+    const data = await response.json();
+    
+    // Transform to match CompanyDossier type
+    return {
+      companyName: data.companyName || companyName,
+      marketCap: data.marketCap,
+      headquarters: data.headquarters || 'Unknown',
+      executiveSummary: data.executiveSummary || '',
+      keyChallenges: data.keyChallenges || [],
+      strategicOpportunities: data.strategicOpportunities || [],
+      cultureAnalysis: data.cultureAnalysis || '',
+      interviewQuestions: data.interviewQuestions || { expected_from_ceo: [], to_ask_ceo: [] },
+      sources: data.sources || [],
+    };
   } catch (error: any) {
     if (error.name === 'AbortError') {
       throw new Error('Request aborted');
     }
     console.error('Company dossier error:', error);
-    return null;
+    
+    // Fallback to AI-only mode
+    console.log('Falling back to AI-only dossier generation');
+    const systemPrompt = `You are a senior M&A due diligence analyst. Always respond with valid JSON.`;
+    const prompt = PROMPTS.COMPANY_DOSSIER(companyName, industry);
+    
+    try {
+      const aiResponse = await callAI(prompt, systemPrompt);
+      return extractJSON(aiResponse);
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+      return null;
+    }
   }
 }
 

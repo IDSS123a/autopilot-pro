@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.research-recruiter]
 verify_jwt = false
+
+[functions.research-company]
+verify_jwt = false
