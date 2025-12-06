@@ -40,7 +40,6 @@ const parseInterviewQuestions = (json: Json): InterviewQuestions => {
 
 const DueDiligence: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
-  const [industry, setIndustry] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [dossier, setDossier] = useState<CompanyDossier | null>(null);
   const [savedDossiers, setSavedDossiers] = useState<SavedDossier[]>([]);
@@ -77,7 +76,7 @@ const DueDiligence: React.FC = () => {
     if (!companyName) return;
     setIsGenerating(true);
     try {
-      const result = await generateCompanyDossier(companyName, industry || 'Technology');
+      const result = await generateCompanyDossier(companyName);
       if (result) {
         setDossier(result);
         
@@ -220,7 +219,7 @@ const DueDiligence: React.FC = () => {
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-heading font-bold text-foreground">Due Diligence</h1>
-        <p className="text-muted-foreground mt-1">AI-powered company research for interview preparation</p>
+        <p className="text-muted-foreground mt-1">AI-powered company research for any company worldwide</p>
       </div>
 
       {/* Saved Dossiers Section */}
@@ -287,8 +286,12 @@ const DueDiligence: React.FC = () => {
       <div className="bg-card border border-border rounded-xl p-6">
         <h3 className="font-heading font-semibold text-foreground mb-4">Generate New Dossier</h3>
         <div className="flex gap-4 mb-6">
-          <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Company name (e.g., FinTech Zurich)" className="flex-1" />
-          <Input value={industry} onChange={(e) => setIndustry(e.target.value)} placeholder="Industry (optional)" className="w-48" />
+          <Input 
+            value={companyName} 
+            onChange={(e) => setCompanyName(e.target.value)} 
+            placeholder="Enter any company name worldwide (e.g., Siemens, Toyota, Nestlé, Saudi Aramco...)" 
+            className="flex-1" 
+          />
           <Button onClick={handleGenerate} disabled={!companyName || isGenerating}>
             {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
             Generate Dossier
