@@ -5,65 +5,109 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Data source configurations based on research repositories
+// Comprehensive data sources for ANY company worldwide
 const DATA_SOURCES = {
+  // Financial & Regulatory (Global)
   SEC_EDGAR: {
-    name: 'SEC EDGAR',
-    searchPatterns: [
-      'site:sec.gov/cgi-bin/browse-edgar',
-      'site:sec.gov/cgi-bin/viewer',
-    ],
-    description: 'US SEC filings (10-K, 10-Q, 8-K, DEF 14A)',
+    name: 'SEC EDGAR (US)',
+    searchPatterns: ['site:sec.gov/cgi-bin/browse-edgar', 'site:sec.gov 10-K 10-Q 8-K'],
+    description: 'US SEC filings - 10-K, 10-Q, 8-K, DEF 14A proxy statements',
   },
   COMPANIES_HOUSE: {
     name: 'UK Companies House',
-    searchPatterns: [
-      'site:find-and-update.company-information.service.gov.uk',
-      'site:beta.companieshouse.gov.uk',
-    ],
-    description: 'UK corporate filings and director info',
+    searchPatterns: ['site:find-and-update.company-information.service.gov.uk', 'site:beta.companieshouse.gov.uk'],
+    description: 'UK corporate filings, directors, accounts',
   },
+  HANDELSREGISTER: {
+    name: 'Handelsregister (Germany)',
+    searchPatterns: ['site:handelsregister.de', 'site:unternehmensregister.de'],
+    description: 'German commercial register',
+  },
+  ZEFIX: {
+    name: 'Zefix (Switzerland)',
+    searchPatterns: ['site:zefix.ch', 'site:shab.ch'],
+    description: 'Swiss commercial register',
+  },
+  // Professional Networks
   LINKEDIN: {
     name: 'LinkedIn',
-    searchPatterns: [
-      'site:linkedin.com/company',
-      'site:linkedin.com/in',
-    ],
-    description: 'Company profiles and executive leadership',
+    searchPatterns: ['site:linkedin.com/company', 'site:linkedin.com/in'],
+    description: 'Company profiles, executives, employee insights',
   },
+  XING: {
+    name: 'XING',
+    searchPatterns: ['site:xing.com/companies', 'site:xing.com/profile'],
+    description: 'DACH region professional network',
+  },
+  // Employee Reviews (Global)
   GLASSDOOR: {
     name: 'Glassdoor',
-    searchPatterns: [
-      'site:glassdoor.com/Reviews',
-      'site:glassdoor.de/Bewertungen',
-    ],
-    description: 'Employee reviews and culture insights',
+    searchPatterns: ['site:glassdoor.com/Reviews', 'site:glassdoor.de', 'site:glassdoor.co.uk'],
+    description: 'Employee reviews, salaries, culture',
   },
-  NEWS: {
-    name: 'Business News',
-    searchPatterns: [
-      'site:reuters.com',
-      'site:bloomberg.com',
-      'site:ft.com',
-      'site:wsj.com',
-      'site:handelsblatt.com',
-    ],
-    description: 'Recent news and press coverage',
+  KUNUNU: {
+    name: 'Kununu',
+    searchPatterns: ['site:kununu.com'],
+    description: 'German-speaking employee reviews',
   },
+  // Business News (Global)
+  REUTERS: {
+    name: 'Reuters',
+    searchPatterns: ['site:reuters.com'],
+    description: 'Global business news',
+  },
+  BLOOMBERG: {
+    name: 'Bloomberg',
+    searchPatterns: ['site:bloomberg.com'],
+    description: 'Financial news and analysis',
+  },
+  FT: {
+    name: 'Financial Times',
+    searchPatterns: ['site:ft.com'],
+    description: 'International business news',
+  },
+  HANDELSBLATT: {
+    name: 'Handelsblatt',
+    searchPatterns: ['site:handelsblatt.com'],
+    description: 'German business news',
+  },
+  NIKKEI: {
+    name: 'Nikkei Asia',
+    searchPatterns: ['site:asia.nikkei.com'],
+    description: 'Asian business news',
+  },
+  // Startup & Funding
   CRUNCHBASE: {
     name: 'Crunchbase',
-    searchPatterns: [
-      'site:crunchbase.com/organization',
-    ],
-    description: 'Funding rounds, investors, and startup data',
+    searchPatterns: ['site:crunchbase.com/organization'],
+    description: 'Funding, investors, startup data',
   },
-  COURT_RECORDS: {
-    name: 'Legal/Court Records',
-    searchPatterns: [
-      'site:pacer.uscourts.gov',
-      'site:courtlistener.com',
-    ],
-    description: 'Litigation history and legal proceedings',
+  PITCHBOOK: {
+    name: 'PitchBook',
+    searchPatterns: ['site:pitchbook.com/profiles/company'],
+    description: 'Private market data',
+  },
+  // Legal & Court Records
+  COURT_LISTENER: {
+    name: 'CourtListener',
+    searchPatterns: ['site:courtlistener.com'],
+    description: 'US court opinions and cases',
+  },
+  PACER: {
+    name: 'PACER',
+    searchPatterns: ['site:pacer.uscourts.gov'],
+    description: 'US federal court records',
+  },
+  // Industry Analysis
+  WIKIPEDIA: {
+    name: 'Wikipedia',
+    searchPatterns: ['site:wikipedia.org'],
+    description: 'Company overview and history',
+  },
+  OWLER: {
+    name: 'Owler',
+    searchPatterns: ['site:owler.com/company'],
+    description: 'Competitive intelligence',
   },
 };
 
@@ -109,7 +153,7 @@ async function searchWithFirecrawl(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Firecrawl search error: ${response.status} - ${errorText}`);
+      console.error(`Firecrawl search error: ${response.status} - ${errorText.substring(0, 100)}`);
       return [];
     }
 
@@ -121,35 +165,6 @@ async function searchWithFirecrawl(
   }
 }
 
-async function scrapeUrl(apiKey: string, url: string): Promise<string | null> {
-  try {
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown'],
-        onlyMainContent: true,
-        waitFor: 3000,
-      }),
-    });
-
-    if (!response.ok) {
-      console.error(`Scrape error for ${url}: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    return data.data?.markdown || null;
-  } catch (error) {
-    console.error(`Scrape failed for ${url}:`, error);
-    return null;
-  }
-}
-
 async function researchSource(
   apiKey: string,
   companyName: string,
@@ -158,19 +173,21 @@ async function researchSource(
 ): Promise<ResearchData> {
   const results: ResearchData['results'] = [];
   
-  // Search using the first pattern for this source
-  const searchQuery = `${companyName} ${source.searchPatterns[0]}`;
-  console.log(`Searching ${source.name}: ${searchQuery}`);
-  
-  const searchResults = await searchWithFirecrawl(apiKey, searchQuery, 3);
-  
-  for (const result of searchResults) {
-    results.push({
-      url: result.url,
-      title: result.title || 'Untitled',
-      snippet: result.description || '',
-      content: result.markdown?.substring(0, 2000) || undefined,
-    });
+  // Search using multiple patterns for comprehensive coverage
+  for (const pattern of source.searchPatterns.slice(0, 2)) {
+    const searchQuery = `"${companyName}" ${pattern}`;
+    console.log(`Searching ${source.name}: ${searchQuery.substring(0, 60)}...`);
+    
+    const searchResults = await searchWithFirecrawl(apiKey, searchQuery, 3);
+    
+    for (const result of searchResults) {
+      results.push({
+        url: result.url,
+        title: result.title || 'Untitled',
+        snippet: result.description || '',
+        content: result.markdown?.substring(0, 3000) || undefined,
+      });
+    }
   }
   
   return {
@@ -181,7 +198,6 @@ async function researchSource(
 
 async function synthesizeWithAI(
   companyName: string,
-  industry: string,
   researchData: ResearchData[]
 ): Promise<any> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -189,48 +205,72 @@ async function synthesizeWithAI(
     throw new Error('LOVABLE_API_KEY not configured');
   }
 
-  // Prepare research context
+  // Prepare comprehensive research context
   const researchContext = researchData
     .filter(d => d.results.length > 0)
     .map(d => {
       const sourceInfo = d.results
-        .map(r => `- ${r.title}: ${r.snippet}\n  URL: ${r.url}${r.content ? `\n  Content: ${r.content.substring(0, 500)}...` : ''}`)
+        .map(r => `- ${r.title}: ${r.snippet}\n  URL: ${r.url}${r.content ? `\n  Content excerpt: ${r.content.substring(0, 1000)}...` : ''}`)
         .join('\n');
       return `### ${d.source}\n${sourceInfo}`;
     })
     .join('\n\n');
 
-  const prompt = `You are a world-class corporate intelligence analyst. Based on the following REAL research data scraped from authoritative sources, generate a comprehensive due diligence dossier.
+  const sourcesFound = researchData.filter(d => d.results.length > 0).map(d => d.source).join(', ');
 
-COMPANY: ${companyName}
-INDUSTRY: ${industry}
+  const prompt = `You are a world-class corporate intelligence analyst conducting due diligence on "${companyName}".
 
-=== RESEARCH DATA FROM VERIFIED SOURCES ===
-${researchContext || 'No specific data found - use your knowledge base.'}
+CRITICAL: This is a UNIVERSAL research tool. The company can be in ANY industry (technology, manufacturing, healthcare, retail, finance, energy, construction, agriculture, hospitality, etc.) and ANY country worldwide.
+
+=== SCRAPED RESEARCH DATA ===
+${researchContext || 'Limited specific data found from scraped sources.'}
 === END RESEARCH DATA ===
 
-CRITICAL INSTRUCTIONS:
-1. Prioritize information from the scraped sources above
-2. If sources provide conflicting information, note the discrepancy
-3. Clearly distinguish between verified data and educated estimates
-4. Include source URLs where available
-5. Be specific and actionable for executive interview preparation
+Sources checked: ${sourcesFound || 'Various business databases'}
 
-Generate a JSON response:
+YOUR TASK:
+Generate a comprehensive executive-level due diligence dossier. Use the scraped data where available, and supplement with your knowledge base for this company.
+
+REQUIREMENTS:
+1. Be specific to THIS company - not generic industry information
+2. Include financial metrics, recent news, and strategic positioning
+3. Research challenges and opportunities specific to their industry and geography
+4. Culture analysis based on employee reviews and company reputation
+5. Prepare interview questions that demonstrate deep research
+
+Generate a JSON response with this EXACT structure:
 {
   "companyName": "${companyName}",
-  "marketCap": "Value from sources or 'Private/Unknown'",
-  "headquarters": "City, Country",
-  "executiveSummary": "3-4 paragraphs synthesizing key findings from sources",
-  "keyChallenges": ["6-8 specific challenges with source context"],
-  "strategicOpportunities": ["6-8 opportunities based on market data"],
-  "cultureAnalysis": "Detailed analysis from Glassdoor/employee sources",
+  "marketCap": "Market cap or 'Private' or estimated valuation",
+  "headquarters": "City, Country (be accurate)",
+  "executiveSummary": "4-5 detailed paragraphs covering: company overview, business model, market position, recent developments, and strategic direction. Be specific and factual.",
+  "keyChallenges": [
+    "8-10 specific challenges facing this company - include market, operational, regulatory, competitive challenges relevant to their industry"
+  ],
+  "strategicOpportunities": [
+    "8-10 specific growth opportunities - market expansion, product development, M&A, partnerships relevant to their situation"
+  ],
+  "cultureAnalysis": "Detailed 2-3 paragraph analysis of company culture based on available data: leadership style, work environment, employee sentiment, values, diversity initiatives, work-life balance. If limited data, note what's observable.",
   "interviewQuestions": {
-    "expected_from_ceo": ["8 specific questions based on company's current situation"],
-    "to_ask_ceo": ["8 questions demonstrating deep research"]
+    "expected_from_ceo": [
+      "10 specific questions the CEO/leadership might ask a senior candidate, based on company's current challenges and strategy"
+    ],
+    "to_ask_ceo": [
+      "10 insightful questions to ask leadership that demonstrate deep research into the company"
+    ]
   },
-  "sources": [{"title": "Source name", "uri": "URL"}]
-}`;
+  "sources": [
+    {"title": "Source Name", "uri": "URL from research data"}
+  ]
+}
+
+IMPORTANT: 
+- Do NOT limit research to technology companies - this works for ANY industry
+- Be specific to the actual company, not generic
+- Include country-specific regulatory and market context
+- Financial data should reflect the company's actual situation
+- If public company, include stock performance context
+- If private, estimate based on available signals`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -239,15 +279,14 @@ Generate a JSON response:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-2.5-pro', // Using Pro for deeper analysis
       messages: [
         { 
           role: 'system', 
-          content: 'You are a senior M&A due diligence analyst. Always respond with valid JSON. Synthesize real research data into actionable intelligence.' 
+          content: 'You are a senior M&A due diligence analyst with expertise across ALL industries globally. Provide thorough, factual, company-specific analysis. Always respond with valid JSON.' 
         },
         { role: 'user', content: prompt }
       ],
-      temperature: 0.3,
     }),
   });
 
@@ -262,10 +301,8 @@ Generate a JSON response:
   
   // Parse JSON from response
   try {
-    // Remove markdown code blocks if present
     let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     
-    // Extract JSON object
     const jsonStart = cleanContent.indexOf('{');
     const jsonEnd = cleanContent.lastIndexOf('}');
     if (jsonStart !== -1 && jsonEnd !== -1) {
@@ -274,7 +311,7 @@ Generate a JSON response:
     
     return JSON.parse(cleanContent);
   } catch (e) {
-    console.error('JSON parse error:', e, 'Content:', content.substring(0, 200));
+    console.error('JSON parse error:', e, 'Content preview:', content.substring(0, 300));
     throw new Error('Failed to parse AI response');
   }
 }
@@ -285,7 +322,7 @@ serve(async (req) => {
   }
 
   try {
-    const { companyName, industry } = await req.json();
+    const { companyName } = await req.json();
     
     if (!companyName) {
       return new Response(
@@ -299,36 +336,68 @@ serve(async (req) => {
       console.warn('FIRECRAWL_API_KEY not set, using AI-only mode');
     }
 
-    console.log(`Starting due diligence research for: ${companyName} (${industry})`);
+    console.log(`Starting comprehensive due diligence for: ${companyName}`);
 
     let researchData: ResearchData[] = [];
 
     if (FIRECRAWL_API_KEY) {
-      // Parallel research across multiple sources
-      const researchPromises = [
-        researchSource(FIRECRAWL_API_KEY, companyName, 'SEC_EDGAR', DATA_SOURCES.SEC_EDGAR),
-        researchSource(FIRECRAWL_API_KEY, companyName, 'COMPANIES_HOUSE', DATA_SOURCES.COMPANIES_HOUSE),
-        researchSource(FIRECRAWL_API_KEY, companyName, 'LINKEDIN', DATA_SOURCES.LINKEDIN),
-        researchSource(FIRECRAWL_API_KEY, companyName, 'GLASSDOOR', DATA_SOURCES.GLASSDOOR),
-        researchSource(FIRECRAWL_API_KEY, companyName, 'NEWS', DATA_SOURCES.NEWS),
-        researchSource(FIRECRAWL_API_KEY, companyName, 'CRUNCHBASE', DATA_SOURCES.CRUNCHBASE),
+      // Comprehensive parallel research across ALL sources
+      const researchPromises = Object.entries(DATA_SOURCES).map(([key, source]) =>
+        researchSource(FIRECRAWL_API_KEY, companyName, key, source)
+      );
+
+      // Add generic searches for broader coverage
+      const additionalSearches = [
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" company overview profile`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" CEO leadership management team`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" revenue financial results annual report`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" news acquisition merger expansion`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" employees culture workplace`, 5),
       ];
 
       // Execute with timeout
       const timeoutPromise = new Promise<ResearchData[]>((resolve) => 
-        setTimeout(() => resolve([]), 25000)
+        setTimeout(() => resolve([]), 35000) // Extended timeout for comprehensive search
       );
 
-      researchData = await Promise.race([
-        Promise.all(researchPromises),
-        timeoutPromise,
-      ]) as ResearchData[];
+      const [sourceResults, ...additionalResults] = await Promise.race([
+        Promise.all([Promise.all(researchPromises), ...additionalSearches]),
+        timeoutPromise.then(() => [[]] as any),
+      ]);
 
-      console.log(`Research completed. Sources with data: ${researchData.filter(d => d.results.length > 0).length}`);
+      if (Array.isArray(sourceResults)) {
+        researchData = sourceResults as ResearchData[];
+      }
+
+      // Add additional search results
+      if (additionalResults) {
+        const additionalData: ResearchData = {
+          source: 'General Web Search',
+          results: []
+        };
+        for (const results of additionalResults) {
+          if (Array.isArray(results)) {
+            for (const r of results) {
+              additionalData.results.push({
+                url: r.url,
+                title: r.title || 'Untitled',
+                snippet: r.description || '',
+                content: r.markdown?.substring(0, 2000)
+              });
+            }
+          }
+        }
+        if (additionalData.results.length > 0) {
+          researchData.push(additionalData);
+        }
+      }
+
+      const sourcesWithData = researchData.filter(d => d.results.length > 0);
+      console.log(`Research complete. ${sourcesWithData.length} sources with data, ${sourcesWithData.reduce((acc, d) => acc + d.results.length, 0)} total results`);
     }
 
-    // Synthesize with AI
-    const dossier = await synthesizeWithAI(companyName, industry || 'General', researchData);
+    // Synthesize with AI (industry-agnostic)
+    const dossier = await synthesizeWithAI(companyName, researchData);
 
     // Add research metadata
     dossier.researchSources = researchData
@@ -336,8 +405,14 @@ serve(async (req) => {
       .map(d => ({
         source: d.source,
         resultsCount: d.results.length,
-        urls: d.results.map(r => r.url),
+        urls: d.results.map(r => r.url).slice(0, 5),
       }));
+
+    dossier.researchStats = {
+      sourcesChecked: Object.keys(DATA_SOURCES).length,
+      sourcesWithData: researchData.filter(d => d.results.length > 0).length,
+      totalResults: researchData.reduce((acc, d) => acc + d.results.length, 0)
+    };
 
     return new Response(
       JSON.stringify(dossier),

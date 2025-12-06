@@ -234,20 +234,19 @@ export async function generateMorningBriefing(name: string, pendingItems: number
 
 export async function generateCompanyDossier(
   companyName: string,
-  industry: string,
   signal?: AbortSignal
 ): Promise<CompanyDossier | null> {
   const RESEARCH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/research-company`;
 
   try {
-    // Use the enhanced research function with Firecrawl
+    // Use the enhanced research function with Firecrawl - works for ANY company worldwide
     const response = await fetch(RESEARCH_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ companyName, industry }),
+      body: JSON.stringify({ companyName }),
       signal,
     });
 
@@ -284,8 +283,8 @@ export async function generateCompanyDossier(
     
     // Fallback to AI-only mode
     console.log('Falling back to AI-only dossier generation');
-    const systemPrompt = `You are a senior M&A due diligence analyst. Always respond with valid JSON.`;
-    const prompt = PROMPTS.COMPANY_DOSSIER(companyName, industry);
+    const systemPrompt = `You are a senior M&A due diligence analyst with expertise across ALL industries globally. Always respond with valid JSON.`;
+    const prompt = PROMPTS.COMPANY_DOSSIER(companyName, 'Any');
     
     try {
       const aiResponse = await callAI(prompt, systemPrompt);
