@@ -109,6 +109,12 @@ const DATA_SOURCES = {
     searchPatterns: ['site:owler.com/company'],
     description: 'Competitive intelligence',
   },
+  // Official Company Website
+  OFFICIAL_WEBSITE: {
+    name: 'Official Website',
+    searchPatterns: [''],
+    description: 'Company official website',
+  },
 };
 
 interface FirecrawlSearchResult {
@@ -134,6 +140,8 @@ async function searchWithFirecrawl(
   limit: number = 5
 ): Promise<FirecrawlSearchResult[]> {
   try {
+    console.log(`Firecrawl search: "${query.substring(0, 80)}..."`);
+    
     const response = await fetch('https://api.firecrawl.dev/v1/search', {
       method: 'POST',
       headers: {
@@ -153,11 +161,12 @@ async function searchWithFirecrawl(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Firecrawl search error: ${response.status} - ${errorText.substring(0, 100)}`);
+      console.error(`Firecrawl error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
+    console.log(`Firecrawl returned ${data.data?.length || 0} results`);
     return data.data || [];
   } catch (error) {
     console.error('Firecrawl search failed:', error);
@@ -173,10 +182,9 @@ async function researchSource(
 ): Promise<ResearchData> {
   const results: ResearchData['results'] = [];
   
-  // Search using multiple patterns for comprehensive coverage
+  // Search using patterns for comprehensive coverage
   for (const pattern of source.searchPatterns.slice(0, 2)) {
-    const searchQuery = `"${companyName}" ${pattern}`;
-    console.log(`Searching ${source.name}: ${searchQuery.substring(0, 60)}...`);
+    const searchQuery = pattern ? `"${companyName}" ${pattern}` : `"${companyName}" official website about`;
     
     const searchResults = await searchWithFirecrawl(apiKey, searchQuery, 3);
     
@@ -185,7 +193,7 @@ async function researchSource(
         url: result.url,
         title: result.title || 'Untitled',
         snippet: result.description || '',
-        content: result.markdown?.substring(0, 3000) || undefined,
+        content: result.markdown?.substring(0, 4000) || undefined,
       });
     }
   }
@@ -210,67 +218,62 @@ async function synthesizeWithAI(
     .filter(d => d.results.length > 0)
     .map(d => {
       const sourceInfo = d.results
-        .map(r => `- ${r.title}: ${r.snippet}\n  URL: ${r.url}${r.content ? `\n  Content excerpt: ${r.content.substring(0, 1000)}...` : ''}`)
+        .map(r => `- ${r.title}: ${r.snippet}\n  URL: ${r.url}${r.content ? `\n  Content: ${r.content.substring(0, 1500)}` : ''}`)
         .join('\n');
       return `### ${d.source}\n${sourceInfo}`;
     })
     .join('\n\n');
 
   const sourcesFound = researchData.filter(d => d.results.length > 0).map(d => d.source).join(', ');
+  const totalResults = researchData.reduce((acc, d) => acc + d.results.length, 0);
 
-  const prompt = `You are a world-class corporate intelligence analyst conducting due diligence on "${companyName}".
+  const prompt = `You are a corporate intelligence analyst conducting due diligence on "${companyName}".
 
-CRITICAL: This is a UNIVERSAL research tool. The company can be in ANY industry (technology, manufacturing, healthcare, retail, finance, energy, construction, agriculture, hospitality, etc.) and ANY country worldwide.
-
-=== SCRAPED RESEARCH DATA ===
-${researchContext || 'Limited specific data found from scraped sources.'}
+=== SCRAPED RESEARCH DATA FROM WEB ===
+${researchContext || 'No specific data scraped from web sources.'}
 === END RESEARCH DATA ===
 
-Sources checked: ${sourcesFound || 'Various business databases'}
+Sources with data: ${sourcesFound || 'None'}
+Total scraped results: ${totalResults}
 
-YOUR TASK:
-Generate a comprehensive executive-level due diligence dossier. Use the scraped data where available, and supplement with your knowledge base for this company.
+CRITICAL INSTRUCTIONS:
+1. You MUST base your analysis ONLY on the scraped data provided above.
+2. If there is no scraped data or very limited data, you MUST clearly state "Insufficient data available" in relevant sections.
+3. DO NOT make up, invent, or hallucinate any information that is not in the scraped data.
+4. DO NOT assume the company type, industry, or any characteristics not explicitly mentioned in the data.
+5. If you cannot verify information from the scraped data, say "Data not available" or "Could not verify".
+6. Be honest when data is limited - it's better to say "unknown" than to guess.
 
-REQUIREMENTS:
-1. Be specific to THIS company - not generic industry information
-2. Include financial metrics, recent news, and strategic positioning
-3. Research challenges and opportunities specific to their industry and geography
-4. Culture analysis based on employee reviews and company reputation
-5. Prepare interview questions that demonstrate deep research
-
-Generate a JSON response with this EXACT structure:
+Generate a JSON response with this structure:
 {
   "companyName": "${companyName}",
-  "marketCap": "Market cap or 'Private' or estimated valuation",
-  "headquarters": "City, Country (be accurate)",
-  "executiveSummary": "4-5 detailed paragraphs covering: company overview, business model, market position, recent developments, and strategic direction. Be specific and factual.",
+  "marketCap": "Extract from data or 'Data not available'",
+  "headquarters": "Extract from data or 'Could not determine'",
+  "executiveSummary": "Write summary ONLY based on scraped data. If limited data, state: 'Limited information available from scraped sources. The following is based on available data: [facts from data]'. Do not invent details.",
   "keyChallenges": [
-    "8-10 specific challenges facing this company - include market, operational, regulatory, competitive challenges relevant to their industry"
+    "List ONLY challenges evident from the scraped data. If none found, include one item: 'Insufficient data to determine specific challenges'"
   ],
   "strategicOpportunities": [
-    "8-10 specific growth opportunities - market expansion, product development, M&A, partnerships relevant to their situation"
+    "List ONLY opportunities evident from the scraped data. If none found, include one item: 'Insufficient data to determine opportunities'"
   ],
-  "cultureAnalysis": "Detailed 2-3 paragraph analysis of company culture based on available data: leadership style, work environment, employee sentiment, values, diversity initiatives, work-life balance. If limited data, note what's observable.",
+  "cultureAnalysis": "Write ONLY based on employee reviews or culture data found. If none: 'No employee review data available from Glassdoor, Kununu, or similar sources.'",
   "interviewQuestions": {
     "expected_from_ceo": [
-      "10 specific questions the CEO/leadership might ask a senior candidate, based on company's current challenges and strategy"
+      "Generate questions based on actual company context from data. If limited: 'Standard executive questions - specific context unavailable'"
     ],
     "to_ask_ceo": [
-      "10 insightful questions to ask leadership that demonstrate deep research into the company"
+      "Generate research-based questions ONLY if data supports them. If limited: 'Recommend researching company website directly for specific questions'"
     ]
   },
   "sources": [
-    {"title": "Source Name", "uri": "URL from research data"}
-  ]
+    {"title": "Source name from research", "uri": "Actual URL from research data"}
+  ],
+  "dataQualityNote": "Describe data quality: 'Comprehensive data from X sources' or 'Limited data - recommend additional research' or 'Minimal data available - results may be incomplete'"
 }
 
-IMPORTANT: 
-- Do NOT limit research to technology companies - this works for ANY industry
-- Be specific to the actual company, not generic
-- Include country-specific regulatory and market context
-- Financial data should reflect the company's actual situation
-- If public company, include stock performance context
-- If private, estimate based on available signals`;
+Remember: ACCURACY over completeness. If data is missing, say so clearly.`;
+
+  console.log('Sending to AI for synthesis...');
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -279,11 +282,11 @@ IMPORTANT:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-pro', // Using Pro for deeper analysis
+      model: 'google/gemini-2.5-pro',
       messages: [
         { 
           role: 'system', 
-          content: 'You are a senior M&A due diligence analyst with expertise across ALL industries globally. Provide thorough, factual, company-specific analysis. Always respond with valid JSON.' 
+          content: 'You are a factual corporate intelligence analyst. You ONLY report information found in provided scraped data. You NEVER invent or hallucinate information. When data is missing, you clearly state "data not available" or "insufficient data". Respond with valid JSON only.' 
         },
         { role: 'user', content: prompt }
       ],
@@ -299,6 +302,8 @@ IMPORTANT:
   const aiData = await response.json();
   const content = aiData.choices?.[0]?.message?.content || '';
   
+  console.log('AI response received, parsing JSON...');
+  
   // Parse JSON from response
   try {
     let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -311,7 +316,7 @@ IMPORTANT:
     
     return JSON.parse(cleanContent);
   } catch (e) {
-    console.error('JSON parse error:', e, 'Content preview:', content.substring(0, 300));
+    console.error('JSON parse error:', e, 'Content preview:', content.substring(0, 500));
     throw new Error('Failed to parse AI response');
   }
 }
@@ -332,71 +337,86 @@ serve(async (req) => {
     }
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!FIRECRAWL_API_KEY) {
-      console.warn('FIRECRAWL_API_KEY not set, using AI-only mode');
-    }
-
-    console.log(`Starting comprehensive due diligence for: ${companyName}`);
+    
+    console.log(`=== Starting Due Diligence for: ${companyName} ===`);
+    console.log(`Firecrawl API Key configured: ${!!FIRECRAWL_API_KEY}`);
 
     let researchData: ResearchData[] = [];
 
     if (FIRECRAWL_API_KEY) {
-      // Comprehensive parallel research across ALL sources
-      const researchPromises = Object.entries(DATA_SOURCES).map(([key, source]) =>
-        researchSource(FIRECRAWL_API_KEY, companyName, key, source)
-      );
+      console.log('Starting comprehensive web scraping...');
+      
+      // Research key sources in parallel
+      const prioritySources = ['LINKEDIN', 'GLASSDOOR', 'WIKIPEDIA', 'CRUNCHBASE', 'REUTERS'];
+      const priorityPromises = prioritySources.map(key => {
+        const source = DATA_SOURCES[key as keyof typeof DATA_SOURCES];
+        if (source) {
+          return researchSource(FIRECRAWL_API_KEY, companyName, key, source);
+        }
+        return Promise.resolve({ source: key, results: [] });
+      });
 
-      // Add generic searches for broader coverage
-      const additionalSearches = [
-        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" company overview profile`, 5),
-        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" CEO leadership management team`, 5),
-        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" revenue financial results annual report`, 5),
-        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" news acquisition merger expansion`, 5),
-        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" employees culture workplace`, 5),
+      // Generic comprehensive searches
+      const genericSearches = [
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" company profile about us`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" CEO founder leadership team`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" revenue financial results investors`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" news press release announcement`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" employee reviews culture workplace`, 5),
+        searchWithFirecrawl(FIRECRAWL_API_KEY, `"${companyName}" headquarters location address`, 3),
       ];
 
       // Execute with timeout
-      const timeoutPromise = new Promise<ResearchData[]>((resolve) => 
-        setTimeout(() => resolve([]), 35000) // Extended timeout for comprehensive search
+      const timeoutMs = 45000;
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Research timeout')), timeoutMs)
       );
 
-      const [sourceResults, ...additionalResults] = await Promise.race([
-        Promise.all([Promise.all(researchPromises), ...additionalSearches]),
-        timeoutPromise.then(() => [[]] as any),
-      ]);
+      try {
+        const [priorityResults, ...genericResults] = await Promise.race([
+          Promise.all([Promise.all(priorityPromises), ...genericSearches]),
+          timeoutPromise.then(() => { throw new Error('Timeout'); }),
+        ]) as [ResearchData[], ...FirecrawlSearchResult[][]];
 
-      if (Array.isArray(sourceResults)) {
-        researchData = sourceResults as ResearchData[];
-      }
+        researchData = priorityResults;
 
-      // Add additional search results
-      if (additionalResults) {
-        const additionalData: ResearchData = {
+        // Add generic search results
+        const genericData: ResearchData = {
           source: 'General Web Search',
           results: []
         };
-        for (const results of additionalResults) {
+        
+        for (const results of genericResults) {
           if (Array.isArray(results)) {
             for (const r of results) {
-              additionalData.results.push({
+              genericData.results.push({
                 url: r.url,
                 title: r.title || 'Untitled',
                 snippet: r.description || '',
-                content: r.markdown?.substring(0, 2000)
+                content: r.markdown?.substring(0, 3000)
               });
             }
           }
         }
-        if (additionalData.results.length > 0) {
-          researchData.push(additionalData);
+        
+        if (genericData.results.length > 0) {
+          researchData.push(genericData);
         }
+
+      } catch (timeoutError) {
+        console.warn('Research timed out, proceeding with available data');
       }
 
       const sourcesWithData = researchData.filter(d => d.results.length > 0);
-      console.log(`Research complete. ${sourcesWithData.length} sources with data, ${sourcesWithData.reduce((acc, d) => acc + d.results.length, 0)} total results`);
+      const totalResultCount = sourcesWithData.reduce((acc, d) => acc + d.results.length, 0);
+      console.log(`Research complete: ${sourcesWithData.length} sources, ${totalResultCount} total results`);
+      
+    } else {
+      console.warn('FIRECRAWL_API_KEY not set - running without web scraping');
     }
 
-    // Synthesize with AI (industry-agnostic)
+    // Synthesize with AI
+    console.log('Synthesizing research data with AI...');
     const dossier = await synthesizeWithAI(companyName, researchData);
 
     // Add research metadata
@@ -411,8 +431,11 @@ serve(async (req) => {
     dossier.researchStats = {
       sourcesChecked: Object.keys(DATA_SOURCES).length,
       sourcesWithData: researchData.filter(d => d.results.length > 0).length,
-      totalResults: researchData.reduce((acc, d) => acc + d.results.length, 0)
+      totalResults: researchData.reduce((acc, d) => acc + d.results.length, 0),
+      scrapingEnabled: !!FIRECRAWL_API_KEY
     };
+
+    console.log(`=== Due Diligence Complete for: ${companyName} ===`);
 
     return new Response(
       JSON.stringify(dossier),
