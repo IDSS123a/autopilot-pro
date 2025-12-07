@@ -6,7 +6,7 @@ import { User } from '@supabase/supabase-js';
 interface AppContextType {
   user: User | null;
   userProfile: UserProfile;
-  updateUserProfile: (profile: UserProfile) => void;
+  updateUserProfile: (profile: UserProfile) => Promise<void>;
   appSettings: AppSettings;
   updateAppSettings: (settings: AppSettings) => void;
   isLoading: boolean;
@@ -14,20 +14,20 @@ interface AppContextType {
 }
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'John Doe',
-  title: 'Chief Technology Officer',
-  company: 'FinTech Global',
-  email: 'john.doe@executive.com',
-  phone: '+41 79 123 4567',
-  location: 'Zurich, Switzerland',
-  linkedin: 'linkedin.com/in/johndoe-cto',
-  website: 'johndoe.tech',
-  targetRole: 'CTO / VP Engineering / CIO',
-  industries: 'FinTech, InsurTech, SaaS',
-  salaryMin: '220,000',
-  currency: 'CHF',
-  bio: 'Visionary technology leader with 15+ years of experience in FinTech and Digital Transformation.',
-  valueProposition: 'I bridge the gap between complex technical strategy and business ROI, specializing in AI implementation and legacy modernization.'
+  name: '',
+  title: '',
+  company: '',
+  email: '',
+  phone: '',
+  location: '',
+  linkedin: '',
+  website: '',
+  targetRole: '',
+  industries: '',
+  salaryMin: '',
+  currency: 'EUR',
+  bio: '',
+  valueProposition: ''
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -62,12 +62,50 @@ const safeParse = <T,>(key: string, fallback: T): T => {
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => 
-    safeParse<UserProfile>('userProfile_autopilot', DEFAULT_PROFILE)
-  );
+  const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [appSettings, setAppSettings] = useState<AppSettings>(() => 
     safeParse<AppSettings>('appSettings_autopilot', DEFAULT_SETTINGS)
   );
+
+  // Load profile from database when user is authenticated
+  const loadProfileFromDB = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error loading profile:', error);
+        return;
+      }
+      
+      if (profile) {
+        const loadedProfile: UserProfile = {
+          id: profile.id,
+          name: profile.full_name || '',
+          title: profile.title || '',
+          company: profile.company || '',
+          email: profile.email || '',
+          phone: profile.phone || '',
+          location: profile.location || '',
+          linkedin: profile.linkedin_url || '',
+          website: profile.website_url || '',
+          targetRole: Array.isArray(profile.target_roles) ? profile.target_roles.join(', ') : '',
+          industries: Array.isArray(profile.target_industries) ? profile.target_industries.join(', ') : '',
+          salaryMin: profile.salary_expectation || '',
+          currency: 'EUR',
+          bio: profile.bio || '',
+          valueProposition: ''
+        };
+        setUserProfile(loadedProfile);
+        console.log('Profile loaded from DB:', loadedProfile);
+      }
+    } catch (error) {
+      console.error('Error in loadProfileFromDB:', error);
+    }
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -75,32 +113,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Fetch profile from database
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          setUserProfile({
-            id: profile.id,
-            name: profile.full_name || DEFAULT_PROFILE.name,
-            title: profile.title || DEFAULT_PROFILE.title,
-            company: profile.company || DEFAULT_PROFILE.company,
-            email: profile.email || session.user.email || DEFAULT_PROFILE.email,
-            phone: profile.phone || DEFAULT_PROFILE.phone,
-            location: profile.location || DEFAULT_PROFILE.location,
-            linkedin: profile.linkedin_url || DEFAULT_PROFILE.linkedin,
-            website: profile.website_url || DEFAULT_PROFILE.website,
-            targetRole: profile.target_roles?.join(', ') || DEFAULT_PROFILE.targetRole,
-            industries: profile.target_industries?.join(', ') || DEFAULT_PROFILE.industries,
-            salaryMin: profile.salary_expectation || DEFAULT_PROFILE.salaryMin,
-            currency: 'CHF',
-            bio: profile.bio || DEFAULT_PROFILE.bio,
-            valueProposition: DEFAULT_PROFILE.valueProposition
-          });
-        }
+        await loadProfileFromDB(session.user.id);
       }
       
       setIsLoading(false);
@@ -108,33 +121,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await loadProfileFromDB(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const updateUserProfile = async (profile: UserProfile) => {
+    // Update local state immediately
     setUserProfile(profile);
-    localStorage.setItem('userProfile_autopilot', JSON.stringify(profile));
     
     if (user) {
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        full_name: profile.name,
-        title: profile.title,
-        company: profile.company,
-        email: profile.email,
-        phone: profile.phone,
-        location: profile.location,
-        linkedin_url: profile.linkedin,
-        website_url: profile.website,
-        target_roles: profile.targetRole.split(',').map(s => s.trim()),
-        target_industries: profile.industries.split(',').map(s => s.trim()),
-        salary_expectation: profile.salaryMin,
-        bio: profile.bio
-      });
+      try {
+        // Prepare the update data
+        const updateData = {
+          id: user.id,
+          full_name: profile.name,
+          title: profile.title,
+          company: profile.company,
+          email: profile.email,
+          phone: profile.phone,
+          location: profile.location,
+          linkedin_url: profile.linkedin,
+          website_url: profile.website,
+          target_roles: profile.targetRole ? profile.targetRole.split(',').map(s => s.trim()).filter(Boolean) : [],
+          target_industries: profile.industries ? profile.industries.split(',').map(s => s.trim()).filter(Boolean) : [],
+          salary_expectation: profile.salaryMin,
+          bio: profile.bio,
+          updated_at: new Date().toISOString()
+        };
+
+        console.log('Updating profile in DB:', updateData);
+
+        const { error } = await supabase
+          .from('profiles')
+          .upsert(updateData, { onConflict: 'id' });
+
+        if (error) {
+          console.error('Error updating profile:', error);
+          throw error;
+        }
+        
+        console.log('Profile saved successfully to database');
+      } catch (error) {
+        console.error('Failed to save profile to database:', error);
+        throw error;
+      }
     }
   };
 
@@ -146,6 +182,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setUserProfile(DEFAULT_PROFILE);
   };
 
   return (
