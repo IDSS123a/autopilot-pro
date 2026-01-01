@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Briefcase, Loader2 } from 'lucide-react';
+import { Briefcase, Loader2, ArrowLeft } from 'lucide-react';
+
+type AuthMode = 'login' | 'signup' | 'forgot-password';
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [mode, setMode] = useState<AuthMode>('login');
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState('');
@@ -20,37 +22,61 @@ const Auth = () => {
 
   // Check if user is already logged in and redirect
   useEffect(() => {
+    let isMounted = true;
+
+    // First check initial session
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && isMounted) {
+          navigate('/app', { replace: true });
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+      } finally {
+        if (isMounted) {
+          setCheckingSession(false);
+        }
+      }
+    };
+
+    checkSession();
+
+    // Set up auth state listener for future changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (session && isMounted) {
         navigate('/app', { replace: true });
       }
-      setCheckingSession(false);
     });
 
-    // Also check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate('/app', { replace: true });
-      }
-      setCheckingSession(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email || !password) {
+    if (!email) {
       toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
+        title: "Missing email",
+        description: "Please enter your email address",
         variant: "destructive"
       });
       return;
     }
 
-    if (!isLogin && !fullName) {
+    if (mode !== 'forgot-password' && !password) {
+      toast({
+        title: "Missing password",
+        description: "Please enter your password",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (mode === 'signup' && !fullName) {
       toast({
         title: "Missing name",
         description: "Please enter your full name",
@@ -62,7 +88,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -75,7 +101,7 @@ const Auth = () => {
           description: "You've successfully logged in",
         });
         navigate('/app');
-      } else {
+      } else if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -94,11 +120,34 @@ const Auth = () => {
           description: "Welcome to C-Level AutoPilot Pro",
         });
         navigate('/app');
+      } else if (mode === 'forgot-password') {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth?mode=reset`,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Reset email sent!",
+          description: "Check your inbox for the password reset link",
+        });
+        setMode('login');
       }
     } catch (error: any) {
+      let errorMessage = error.message;
+      
+      // User-friendly error messages
+      if (error.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (error.message?.includes('Email not confirmed')) {
+        errorMessage = 'Please confirm your email address first.';
+      } else if (error.message?.includes('User already registered')) {
+        errorMessage = 'An account with this email already exists.';
+      }
+      
       toast({
         title: "Authentication error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -110,10 +159,37 @@ const Auth = () => {
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-hero">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground text-sm">Initializing...</p>
+        </div>
       </div>
     );
   }
+
+  const getTitle = () => {
+    switch (mode) {
+      case 'login': return 'Welcome Back';
+      case 'signup': return 'Get Started';
+      case 'forgot-password': return 'Reset Password';
+    }
+  };
+
+  const getDescription = () => {
+    switch (mode) {
+      case 'login': return 'Sign in to access your job search dashboard';
+      case 'signup': return 'Create your account to start your executive career journey';
+      case 'forgot-password': return 'Enter your email and we\'ll send you a reset link';
+    }
+  };
+
+  const getButtonText = () => {
+    switch (mode) {
+      case 'login': return 'Sign In';
+      case 'signup': return 'Create Account';
+      case 'forgot-password': return 'Send Reset Link';
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-hero">
@@ -132,18 +208,26 @@ const Auth = () => {
 
         <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/95">
           <CardHeader>
+            {mode === 'forgot-password' && (
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 transition-smooth"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to login
+              </button>
+            )}
             <CardTitle className="text-2xl font-heading">
-              {isLogin ? 'Welcome Back' : 'Get Started'}
+              {getTitle()}
             </CardTitle>
             <CardDescription>
-              {isLogin
-                ? 'Sign in to access your job search dashboard'
-                : 'Create your account to start your executive career journey'}
+              {getDescription()}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleAuth} className="space-y-4">
-              {!isLogin && (
+              {mode === 'signup' && (
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
                   <Input
@@ -152,7 +236,7 @@ const Auth = () => {
                     placeholder="John Smith"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    required={!isLogin}
+                    required={mode === 'signup'}
                     className="bg-input border-border"
                   />
                 </div>
@@ -171,18 +255,31 @@ const Auth = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="bg-input border-border"
-                />
-              </div>
+              {mode !== 'forgot-password' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    {mode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => setMode('forgot-password')}
+                        className="text-xs text-primary hover:text-primary-glow transition-smooth"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="bg-input border-border"
+                  />
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -190,21 +287,23 @@ const Auth = () => {
                 disabled={loading}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLogin ? 'Sign In' : 'Create Account'}
+                {getButtonText()}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:text-primary-glow transition-smooth underline-offset-4 hover:underline"
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up"
-                  : 'Already have an account? Sign in'}
-              </button>
-            </div>
+            {mode !== 'forgot-password' && (
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+                  className="text-sm text-primary hover:text-primary-glow transition-smooth underline-offset-4 hover:underline"
+                >
+                  {mode === 'login'
+                    ? "Don't have an account? Sign up"
+                    : 'Already have an account? Sign in'}
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
