@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, AppSettings } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 
 interface AppContextType {
+  session: Session | null;
   user: User | null;
   userProfile: UserProfile;
   updateUserProfile: (profile: UserProfile) => Promise<void>;
@@ -60,10 +61,11 @@ const safeParse = <T,>(key: string, fallback: T): T => {
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [appSettings, setAppSettings] = useState<AppSettings>(() => 
+  const [appSettings, setAppSettings] = useState<AppSettings>(() =>
     safeParse<AppSettings>('appSettings_autopilot', DEFAULT_SETTINGS)
   );
 
@@ -100,7 +102,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           valueProposition: ''
         };
         setUserProfile(loadedProfile);
-        console.log('Profile loaded from DB:', loadedProfile);
       }
     } catch (error) {
       console.error('Error in loadProfileFromDB:', error);
@@ -108,28 +109,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await loadProfileFromDB(session.user.id);
-      }
-      
-      setIsLoading(false);
-    };
+    let mounted = true;
 
-    initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await loadProfileFromDB(session.user.id);
-      }
+    // Listener FIRST (prevents missed auth events during init)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    // THEN get current session
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: initialSession } }) => {
+        if (!mounted) return;
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setIsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // Load profile after auth state is updated (avoid Supabase calls inside onAuthStateChange)
+  useEffect(() => {
+    if (!user) {
+      setUserProfile(DEFAULT_PROFILE);
+      return;
+    }
+
+    setTimeout(() => {
+      void loadProfileFromDB(user.id);
+    }, 0);
+  }, [user]);
 
   const updateUserProfile = async (profile: UserProfile) => {
     // Update local state immediately
@@ -181,12 +199,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
     setUser(null);
     setUserProfile(DEFAULT_PROFILE);
   };
 
   return (
     <AppContext.Provider value={{
+      session,
       user,
       userProfile,
       updateUserProfile,
