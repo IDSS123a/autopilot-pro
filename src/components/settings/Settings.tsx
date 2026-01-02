@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import ChangePassword from './ChangePassword';
 
 const Settings: React.FC = () => {
   const { userProfile, updateUserProfile, user } = useApp();
@@ -94,11 +95,8 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* Debug info - can be removed in production */}
-      <div className="bg-muted/30 border border-border rounded-xl p-4 text-xs text-muted-foreground">
-        <p>Current user ID: {user?.id || 'Not logged in'}</p>
-        <p>Profile loaded: {profile.name ? 'Yes' : 'No'}</p>
-      </div>
+      {/* Change Password Section */}
+      <ChangePassword />
     </div>
   );
 };

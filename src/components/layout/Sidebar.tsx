@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2 } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield } from 'lucide-react';
 import { View } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -55,6 +55,18 @@ const Sidebar: React.FC = () => {
       </nav>
 
       <div className="p-4 border-t border-border space-y-2">
+        <button
+          onClick={() => navigate('/app/admin/audit-log')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
+            location.pathname === '/app/admin/audit-log'
+              ? 'bg-primary/10 text-primary border border-primary/30'
+              : 'text-muted-foreground hover:bg-card hover:text-foreground'
+          }`}
+        >
+          <Shield size={18} className={`transition-colors ${location.pathname === '/app/admin/audit-log' ? 'text-primary' : 'group-hover:text-primary'}`} />
+          <span>Audit Log</span>
+        </button>
+
         <button
           onClick={() => navigate('/app/settings')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
