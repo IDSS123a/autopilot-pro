@@ -139,28 +139,49 @@ const OpportunityScanner: React.FC = () => {
         return;
       }
 
-      const { error } = await supabase.from('opportunities').insert({
-        id: job.id,
-        user_id: user.id,
-        position_title: job.title,
-        company_name: job.company,
-        location: job.location,
-        salary_range: job.salary_range,
-        match_score: job.match_score,
-        status: job.status,
-        source: job.source,
-        posted_date: job.posted_date,
-        job_description: job.description
-      });
+      // Parse posted_date - ensure valid format or null
+      let parsedDate: string | null = null;
+      if (job.posted_date) {
+        const dateMatch = job.posted_date.match(/\d{4}-\d{2}-\d{2}/);
+        if (dateMatch) {
+          parsedDate = dateMatch[0];
+        }
+      }
+
+      // Let the database generate the UUID - don't use client-side ID
+      const { data: insertedRow, error } = await supabase
+        .from('opportunities')
+        .insert({
+          user_id: user.id,
+          position_title: job.title,
+          company_name: job.company,
+          location: job.location || null,
+          salary_range: job.salary_range || null,
+          match_score: job.match_score || null,
+          status: job.status || 'new',
+          source: job.source || null,
+          posted_date: parsedDate,
+          job_description: job.description || null
+        })
+        .select('id')
+        .single();
 
       if (error) {
         if (error.code === '23505') {
           toast.info('Opportunity already saved');
         } else {
+          console.error('Save error details:', error);
           throw error;
         }
-      } else {
-        setSavedOpportunities(prev => [...prev, job.id]);
+      } else if (insertedRow) {
+        // Update local state with the database-generated ID
+        setJobs(prev => prev.map(j => 
+          j.id === job.id ? { ...j, id: insertedRow.id } : j
+        ));
+        setSavedOpportunities(prev => [...prev, insertedRow.id]);
+        if (selectedJob?.id === job.id) {
+          setSelectedJob({ ...job, id: insertedRow.id });
+        }
         toast.success('Opportunity saved');
       }
     } catch (error) {
