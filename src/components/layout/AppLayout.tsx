@@ -13,6 +13,7 @@ const RecruiterAgent = lazy(() => import('@/components/recruiters/RecruiterAgent
 const CommunicationHub = lazy(() => import('@/components/communication/CommunicationHub'));
 const DueDiligence = lazy(() => import('@/components/duediligence/DueDiligence'));
 const Settings = lazy(() => import('@/components/settings/Settings'));
+const AuthAuditLog = lazy(() => import('@/components/admin/AuthAuditLog'));
 
 const AutonomousAgentSimulator: React.FC = () => {
   const { addAgentLog } = useLogStore();
@@ -61,6 +62,7 @@ const AppLayout: React.FC = () => {
                 <Route path="/communication" element={<CommunicationHub />} />
                 <Route path="/due-diligence" element={<DueDiligence />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/admin/audit-log" element={<AuthAuditLog />} />
                 <Route path="*" element={<Navigate to="/app" replace />} />
               </Routes>
             </Suspense>
