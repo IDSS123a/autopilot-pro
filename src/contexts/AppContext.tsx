@@ -198,10 +198,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const signOut = async () => {
+    const userId = user?.id;
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
     setUserProfile(DEFAULT_PROFILE);
+    
+    // Log logout event (async, don't await)
+    if (userId) {
+      import('@/hooks/useAuthAudit').then(({ logAuthEvent }) => {
+        logAuthEvent('logout', userId).catch(console.error);
+      });
+    }
   };
 
   return (

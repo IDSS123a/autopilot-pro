@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,20 +7,26 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase, Loader2, ArrowLeft } from 'lucide-react';
+import { logAuthEvent } from '@/hooks/useAuthAudit';
 
-type AuthMode = 'login' | 'signup' | 'forgot-password';
+type AuthMode = 'login' | 'signup' | 'forgot-password' | 'reset';
 
 const Auth = () => {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<AuthMode>(() => {
+    const urlMode = searchParams.get('mode');
+    return urlMode === 'reset' ? 'reset' : 'login';
+  });
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is already logged in and redirect
+  // Check if user is already logged in and handle password reset flow
   useEffect(() => {
     let isMounted = true;
 
@@ -29,6 +35,11 @@ const Auth = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted) {
+          // If we're in reset mode, stay on page to allow password change
+          if (mode === 'reset') {
+            setCheckingSession(false);
+            return;
+          }
           navigate('/app', { replace: true });
         }
       } catch (error) {
@@ -44,7 +55,21 @@ const Auth = () => {
 
     // Set up auth state listener for future changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && isMounted) {
+      if (!isMounted) return;
+      
+      // Handle password recovery event
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('reset');
+        setCheckingSession(false);
+        return;
+      }
+      
+      // Don't redirect if we're in reset mode
+      if (mode === 'reset') {
+        return;
+      }
+      
+      if (session) {
         navigate('/app', { replace: true });
       }
     });
@@ -89,12 +114,17 @@ const Auth = () => {
 
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) throw error;
+
+        // Log successful login
+        if (data.user) {
+          await logAuthEvent('login', data.user.id, { email });
+        }
 
         toast({
           title: "Welcome back!",
@@ -102,7 +132,7 @@ const Auth = () => {
         });
         navigate('/app');
       } else if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -114,6 +144,11 @@ const Auth = () => {
         });
 
         if (error) throw error;
+
+        // Log successful signup
+        if (data.user) {
+          await logAuthEvent('signup', data.user.id, { email, fullName });
+        }
 
         toast({
           title: "Account created!",
@@ -132,6 +167,44 @@ const Auth = () => {
           description: "Check your inbox for the password reset link",
         });
         setMode('login');
+      } else if (mode === 'reset') {
+        // Validate passwords match
+        if (password !== confirmPassword) {
+          toast({
+            title: "Passwords don't match",
+            description: "Please make sure both passwords are the same",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          toast({
+            title: "Password too short",
+            description: "Password must be at least 6 characters",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.updateUser({
+          password: password,
+        });
+
+        if (error) throw error;
+
+        // Log password update
+        if (data.user) {
+          await logAuthEvent('password_update', data.user.id);
+        }
+
+        toast({
+          title: "Password updated!",
+          description: "Your password has been successfully changed",
+        });
+        navigate('/app');
       }
     } catch (error: any) {
       let errorMessage = error.message;
@@ -143,6 +216,9 @@ const Auth = () => {
         errorMessage = 'Please confirm your email address first.';
       } else if (error.message?.includes('User already registered')) {
         errorMessage = 'An account with this email already exists.';
+      } else if (error.message?.includes('Auth session missing')) {
+        errorMessage = 'Your reset link has expired. Please request a new one.';
+        setMode('forgot-password');
       }
       
       toast({
@@ -172,6 +248,7 @@ const Auth = () => {
       case 'login': return 'Welcome Back';
       case 'signup': return 'Get Started';
       case 'forgot-password': return 'Reset Password';
+      case 'reset': return 'Set New Password';
     }
   };
 
@@ -180,6 +257,7 @@ const Auth = () => {
       case 'login': return 'Sign in to access your job search dashboard';
       case 'signup': return 'Create your account to start your executive career journey';
       case 'forgot-password': return 'Enter your email and we\'ll send you a reset link';
+      case 'reset': return 'Enter your new password below';
     }
   };
 
@@ -188,6 +266,7 @@ const Auth = () => {
       case 'login': return 'Sign In';
       case 'signup': return 'Create Account';
       case 'forgot-password': return 'Send Reset Link';
+      case 'reset': return 'Update Password';
     }
   };
 
@@ -208,7 +287,7 @@ const Auth = () => {
 
         <Card className="border-border/50 shadow-lg backdrop-blur-sm bg-card/95">
           <CardHeader>
-            {mode === 'forgot-password' && (
+            {(mode === 'forgot-password' || mode === 'reset') && (
               <button
                 type="button"
                 onClick={() => setMode('login')}
@@ -242,23 +321,27 @@ const Auth = () => {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-input border-border"
-                />
-              </div>
+              {mode !== 'reset' && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="bg-input border-border"
+                  />
+                </div>
+              )}
 
-              {mode !== 'forgot-password' && (
+              {(mode === 'login' || mode === 'signup' || mode === 'reset') && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">
+                      {mode === 'reset' ? 'New Password' : 'Password'}
+                    </Label>
                     {mode === 'login' && (
                       <button
                         type="button"
@@ -276,6 +359,23 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
+                    className="bg-input border-border"
+                  />
+                </div>
+              )}
+
+              {mode === 'reset' && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
                     className="bg-input border-border"
                   />
                 </div>
@@ -291,7 +391,7 @@ const Auth = () => {
               </Button>
             </form>
 
-            {mode !== 'forgot-password' && (
+            {(mode === 'login' || mode === 'signup') && (
               <div className="mt-6 text-center">
                 <button
                   type="button"
