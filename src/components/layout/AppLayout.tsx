@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import MobileNav from './MobileNav';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LoadingScreen from '@/components/common/LoadingScreen';
 import { useLogStore } from '@/store/useLogStore';
@@ -49,8 +50,9 @@ const AppLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar />
+      <MobileNav />
       <AutonomousAgentSimulator />
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden pt-[60px] md:pt-0">
         <div className="flex-1 overflow-auto">
           <ErrorBoundary>
             <Suspense fallback={<LoadingScreen />}>

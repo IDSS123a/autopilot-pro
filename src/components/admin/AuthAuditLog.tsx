@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, RefreshCw, Clock, User, Globe, LogIn, LogOut, UserPlus, KeyRound } from 'lucide-react';
+import { Shield, RefreshCw, Clock, User, Globe, LogIn, LogOut, UserPlus, KeyRound, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import type { Json } from '@/integrations/supabase/types';
+import { useApp } from '@/contexts/AppContext';
 
 interface AuditLogEntry {
   id: string;
@@ -18,13 +19,48 @@ interface AuditLogEntry {
 }
 
 const AuthAuditLog: React.FC = () => {
+  const { user } = useApp();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  // Check if user has admin role
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          // If no role found, default to showing own logs
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data?.role === 'admin');
+        }
+      } catch (error) {
+        console.error('Error checking admin role:', error);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminRole();
+  }, [user]);
 
   const fetchLogs = async () => {
+    if (!user) return;
+    
     setLoading(true);
     try {
+      // RLS policy ensures users only see their own logs unless admin
       const { data, error } = await supabase
         .from('auth_audit_log')
         .select('*')
@@ -57,8 +93,10 @@ const AuthAuditLog: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    if (user) {
+      fetchLogs();
+    }
+  }, [user]);
 
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
@@ -109,7 +147,15 @@ const AuthAuditLog: React.FC = () => {
 
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-lg">Recent Authentication Events</CardTitle>
+          <CardTitle className="text-lg">
+            {isAdmin ? 'All Authentication Events' : 'Your Authentication Events'}
+          </CardTitle>
+          <CardDescription>
+            {isAdmin 
+              ? 'Viewing all system authentication events' 
+              : 'Viewing your personal login history'
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
