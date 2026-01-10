@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Menu, X, LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield } from 'lucide-react';
+import { Menu, X, LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield, UserCog } from 'lucide-react';
 import { View } from '@/types';
 import { useApp } from '@/contexts/AppContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logoImage from '@/assets/logo.png';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const MobileNav: React.FC = () => {
   const { userProfile, signOut } = useApp();
+  const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -82,6 +84,20 @@ const MobileNav: React.FC = () => {
               </nav>
 
               <div className="p-4 border-t border-border space-y-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => handleNavigate('/app/admin')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      location.pathname === '/app/admin'
+                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                        : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                    }`}
+                  >
+                    <UserCog size={18} />
+                    <span>Admin Dashboard</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleNavigate('/app/admin/audit-log')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
