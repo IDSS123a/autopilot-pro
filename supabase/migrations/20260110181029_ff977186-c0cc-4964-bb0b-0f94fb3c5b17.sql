@@ -1,0 +1,17 @@
+-- Add RLS policies for admins to view all profiles
+CREATE POLICY "Admins can view all profiles"
+ON public.profiles
+FOR SELECT
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- Add RLS policies for admins to view all audit logs
+CREATE POLICY "Admins can view all audit logs"
+ON public.auth_audit_log
+FOR SELECT
+USING (public.has_role(auth.uid(), 'admin'));
+
+-- Add RLS policies for admins to view all user roles
+CREATE POLICY "Admins can view all user roles"
+ON public.user_roles
+FOR SELECT
+USING (public.has_role(auth.uid(), 'admin'));

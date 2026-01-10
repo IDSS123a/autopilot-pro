@@ -1,12 +1,14 @@
 import React from 'react';
-import { LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield } from 'lucide-react';
+import { LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield, UserCog } from 'lucide-react';
 import { View } from '@/types';
 import { useApp } from '@/contexts/AppContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logoImage from '@/assets/logo.png';
 
 const Sidebar: React.FC = () => {
   const { userProfile, signOut } = useApp();
+  const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,6 +57,20 @@ const Sidebar: React.FC = () => {
       </nav>
 
       <div className="p-4 border-t border-border space-y-2">
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/app/admin')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
+              location.pathname === '/app/admin'
+                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
+                : 'text-muted-foreground hover:bg-card hover:text-foreground'
+            }`}
+          >
+            <UserCog size={18} className={`transition-colors ${location.pathname === '/app/admin' ? 'text-amber-500' : 'group-hover:text-amber-500'}`} />
+            <span>Admin Dashboard</span>
+          </button>
+        )}
+
         <button
           onClick={() => navigate('/app/admin/audit-log')}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 group ${
