@@ -6,7 +6,8 @@ import {
   Shield, 
   User as UserIcon,
   Search,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -132,6 +133,33 @@ const UserManagement: React.FC = () => {
     );
   });
 
+  const exportToCSV = () => {
+    const headers = ['Name', 'Email', 'Title', 'Role', 'Joined'];
+    const csvRows = [
+      headers.join(','),
+      ...filteredUsers.map(user => [
+        `"${user.full_name || 'Unknown'}"`,
+        `"${user.email}"`,
+        `"${user.title || ''}"`,
+        `"${user.role}"`,
+        `"${format(new Date(user.created_at), 'yyyy-MM-dd')}"`
+      ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `users-export-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success(`Exported ${filteredUsers.length} users to CSV`);
+  };
+
   return (
     <Card className="border-border">
       <CardHeader>
@@ -145,10 +173,21 @@ const UserManagement: React.FC = () => {
               View all users and manage their roles
             </CardDescription>
           </div>
-          <Button onClick={fetchUsers} disabled={loading} variant="outline" size="sm">
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={exportToCSV} 
+              disabled={loading || filteredUsers.length === 0} 
+              variant="outline" 
+              size="sm"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button onClick={fetchUsers} disabled={loading} variant="outline" size="sm">
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
