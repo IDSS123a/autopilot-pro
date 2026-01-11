@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import LoadingScreen from '@/components/common/LoadingScreen';
 import { useLogStore } from '@/store/useLogStore';
 import { useApp } from '@/contexts/AppContext';
+import { useSessionTracker } from '@/hooks/useSessionTracker';
 
 const CommandCenter = lazy(() => import('@/components/dashboard/CommandCenter'));
 const CVAnalyzer = lazy(() => import('@/components/cv/CVAnalyzer'));
@@ -44,6 +45,9 @@ const AutonomousAgentSimulator: React.FC = () => {
 
 const AppLayout: React.FC = () => {
   const { user, isLoading } = useApp();
+  
+  // Track user sessions and page views
+  useSessionTracker();
 
   if (isLoading) return <LoadingScreen />;
   if (!user) return <Navigate to="/auth" replace />;
