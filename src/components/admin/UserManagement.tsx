@@ -7,8 +7,16 @@ import {
   User as UserIcon,
   Search,
   ChevronDown,
-  Download
+  Download,
+  Filter
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +51,7 @@ const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   const fetchUsers = async () => {
@@ -127,10 +136,12 @@ const UserManagement: React.FC = () => {
 
   const filteredUsers = users.filter(user => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       user.email.toLowerCase().includes(query) ||
       (user.full_name?.toLowerCase().includes(query) || false)
     );
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    return matchesSearch && matchesRole;
   });
 
   const exportToCSV = () => {
@@ -191,8 +202,8 @@ const UserManagement: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex gap-3">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or email..."
@@ -201,6 +212,27 @@ const UserManagement: React.FC = () => {
               className="pl-10"
             />
           </div>
+          <Select value={roleFilter} onValueChange={(value: 'all' | 'admin' | 'user') => setRoleFilter(value)}>
+            <SelectTrigger className="w-[140px]">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Filter role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="admin">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-3 h-3" />
+                  Admin
+                </div>
+              </SelectItem>
+              <SelectItem value="user">
+                <div className="flex items-center gap-2">
+                  <UserIcon className="w-3 h-3" />
+                  User
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
