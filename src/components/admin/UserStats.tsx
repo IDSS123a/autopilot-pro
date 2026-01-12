@@ -9,13 +9,16 @@ import {
   TrendingUp,
   RefreshCw,
   Calendar,
-  MapPin
+  MapPin,
+  BarChart3
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { format, formatDistanceToNow, startOfMonth, subDays } from 'date-fns';
+import { format, formatDistanceToNow, startOfMonth, subDays, eachDayOfInterval, startOfDay } from 'date-fns';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 interface UserSession {
   id: string;
@@ -33,6 +36,14 @@ interface PageViewStat {
   count: number;
 }
 
+interface DailyActivity {
+  date: string;
+  displayDate: string;
+  sessions: number;
+  pageViews: number;
+  uniqueUsers: number;
+}
+
 interface UserActivity {
   userId: string;
   name: string;
@@ -42,6 +53,21 @@ interface UserActivity {
   avgDuration: number;
   topPages: string[];
 }
+
+const chartConfig = {
+  sessions: {
+    label: "Sessions",
+    color: "hsl(var(--primary))",
+  },
+  pageViews: {
+    label: "Page Views",
+    color: "hsl(var(--chart-2))",
+  },
+  uniqueUsers: {
+    label: "Unique Users",
+    color: "hsl(var(--chart-3))",
+  },
+};
 
 const UserStats: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -56,12 +82,16 @@ const UserStats: React.FC = () => {
   const [recentUsers, setRecentUsers] = useState<UserActivity[]>([]);
   const [topPages, setTopPages] = useState<PageViewStat[]>([]);
   const [activeSessions, setActiveSessions] = useState<UserSession[]>([]);
+  const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
 
   const fetchStats = async () => {
     setLoading(true);
     try {
       const startOfThisMonth = startOfMonth(new Date()).toISOString();
       const today = subDays(new Date(), 1).toISOString();
+
+      // Date range for last 14 days chart
+      const fourteenDaysAgo = subDays(new Date(), 14);
 
       // Parallel fetch all stats
       const [
@@ -70,14 +100,18 @@ const UserStats: React.FC = () => {
         { count: newCount },
         { data: sessions },
         { data: pageViews },
-        { data: profiles }
+        { data: profiles },
+        { data: allSessions },
+        { data: allPageViews }
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('user_roles').select('*', { count: 'exact', head: true }).eq('role', 'admin'),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfThisMonth),
         supabase.from('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(100),
         supabase.from('page_views').select('page_path, page_title, session_id, user_id').order('created_at', { ascending: false }).limit(500),
-        supabase.from('profiles').select('id, email, full_name, created_at').order('created_at', { ascending: false })
+        supabase.from('profiles').select('id, email, full_name, created_at').order('created_at', { ascending: false }),
+        supabase.from('user_sessions').select('started_at, user_id').gte('started_at', fourteenDaysAgo.toISOString()),
+        supabase.from('page_views').select('created_at, user_id').gte('created_at', fourteenDaysAgo.toISOString())
       ]);
 
       // Calculate active today (sessions with activity in last 24h)
@@ -164,6 +198,42 @@ const UserStats: React.FC = () => {
       });
 
       setRecentUsers(recentActivity);
+
+      // Calculate daily activity for chart (last 14 days)
+      const days = eachDayOfInterval({
+        start: fourteenDaysAgo,
+        end: new Date()
+      });
+
+      const dailyData: DailyActivity[] = days.map(day => {
+        const dayStart = startOfDay(day);
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        
+        const daySessions = allSessions?.filter(s => {
+          const sessionDate = new Date(s.started_at);
+          return sessionDate >= dayStart && sessionDate < dayEnd;
+        }) || [];
+        
+        const dayPageViews = allPageViews?.filter(pv => {
+          const pvDate = new Date(pv.created_at);
+          return pvDate >= dayStart && pvDate < dayEnd;
+        }) || [];
+        
+        const uniqueUserIds = new Set([
+          ...daySessions.map(s => s.user_id),
+          ...dayPageViews.map(pv => pv.user_id)
+        ]);
+
+        return {
+          date: day.toISOString(),
+          displayDate: format(day, 'MMM d'),
+          sessions: daySessions.length,
+          pageViews: dayPageViews.length,
+          uniqueUsers: uniqueUserIds.size
+        };
+      });
+
+      setDailyActivity(dailyData);
 
     } catch (error) {
       console.error('Error fetching user stats:', error);
@@ -273,6 +343,81 @@ const UserStats: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily Activity Chart */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            User Activity (Last 14 Days)
+          </CardTitle>
+          <CardDescription>Sessions, page views, and unique users over time</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {dailyActivity.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8">No activity data available yet</p>
+          ) : (
+            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+              <LineChart
+                data={dailyActivity}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis 
+                  dataKey="displayDate" 
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                />
+                <YAxis 
+                  tickLine={false}
+                  axisLine={false}
+                  className="text-xs"
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line 
+                  type="monotone" 
+                  dataKey="sessions" 
+                  stroke="var(--color-sessions)" 
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="pageViews" 
+                  stroke="var(--color-pageViews)" 
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="uniqueUsers" 
+                  stroke="var(--color-uniqueUsers)" 
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ChartContainer>
+          )}
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-primary" />
+              <span className="text-sm text-muted-foreground">Sessions</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-2))' }} />
+              <span className="text-sm text-muted-foreground">Page Views</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: 'hsl(var(--chart-3))' }} />
+              <span className="text-sm text-muted-foreground">Unique Users</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Currently Active Users */}
