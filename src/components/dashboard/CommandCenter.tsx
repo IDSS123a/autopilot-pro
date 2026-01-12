@@ -195,9 +195,9 @@ const CommandCenter: React.FC = () => {
         {/* Chart */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
           <h3 className="font-heading font-semibold text-foreground mb-4">Weekly Activity</h3>
-          <div className="h-64">
+          <div style={{ minHeight: '256px', height: '256px', width: '100%' }}>
             {weeklyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={256}>
                 <AreaChart data={weeklyData}>
                   <defs>
                     <linearGradient id="colorCommunications" x1="0" y1="0" x2="0" y2="1">

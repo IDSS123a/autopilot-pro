@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +15,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 
 const WORLD_REGIONS = [
@@ -38,6 +42,9 @@ const WORLD_REGIONS = [
   { id: 'caribbean', name: 'Caribbean', countries: ['Jamaica', 'Bahamas', 'Dominican Republic', 'Puerto Rico'] },
 ];
 
+type SortOption = 'match_score' | 'posted_date' | 'company' | 'title';
+type FilterOption = 'all' | 'analyzed' | 'high_match' | 'saved';
+
 const OpportunityScanner: React.FC = () => {
   const { userProfile } = useApp();
   const [jobs, setJobs] = useState<Opportunity[]>([]);
@@ -47,6 +54,10 @@ const OpportunityScanner: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<Opportunity | null>(null);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(['dach', 'see']);
   const [isScanning, setIsScanning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('match_score');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterBy, setFilterBy] = useState<FilterOption>('all');
 
   useEffect(() => {
     loadSavedOpportunities();
@@ -265,6 +276,57 @@ const OpportunityScanner: React.FC = () => {
     }
   };
 
+  // Filter and sort jobs
+  const filteredAndSortedJobs = useMemo(() => {
+    let result = [...jobs];
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(job => 
+        job.title.toLowerCase().includes(query) ||
+        job.company.toLowerCase().includes(query) ||
+        job.location.toLowerCase().includes(query) ||
+        job.description.toLowerCase().includes(query)
+      );
+    }
+    
+    // Category filter
+    switch (filterBy) {
+      case 'analyzed':
+        result = result.filter(job => job.match_score > 0);
+        break;
+      case 'high_match':
+        result = result.filter(job => job.match_score >= 70);
+        break;
+      case 'saved':
+        result = result.filter(job => savedOpportunities.includes(job.id));
+        break;
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'match_score':
+          comparison = (a.match_score || 0) - (b.match_score || 0);
+          break;
+        case 'posted_date':
+          comparison = new Date(a.posted_date || 0).getTime() - new Date(b.posted_date || 0).getTime();
+          break;
+        case 'company':
+          comparison = a.company.localeCompare(b.company);
+          break;
+        case 'title':
+          comparison = a.title.localeCompare(b.title);
+          break;
+      }
+      return sortOrder === 'desc' ? -comparison : comparison;
+    });
+    
+    return result;
+  }, [jobs, searchQuery, filterBy, sortBy, sortOrder, savedOpportunities]);
+
   const getSelectedRegionNames = () => {
     if (selectedRegions.length === 0) return 'Select Regions';
     if (selectedRegions.length <= 2) {
@@ -281,6 +343,13 @@ const OpportunityScanner: React.FC = () => {
     if (score >= 60) return 'text-primary bg-primary/10 border-primary/30';
     return 'text-accent bg-accent/10 border-accent/30';
   };
+
+  const stats = useMemo(() => ({
+    total: jobs.length,
+    analyzed: jobs.filter(j => j.match_score > 0).length,
+    highMatch: jobs.filter(j => j.match_score >= 70).length,
+    saved: savedOpportunities.length
+  }), [jobs, savedOpportunities]);
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -382,6 +451,93 @@ const OpportunityScanner: React.FC = () => {
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterBy('all')}>
+          <div className="flex items-center gap-2 mb-2">
+            <Globe className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Total Found</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterBy('analyzed')}>
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-accent" />
+            <span className="text-sm text-muted-foreground">AI Analyzed</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{stats.analyzed}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterBy('high_match')}>
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-success" />
+            <span className="text-sm text-muted-foreground">High Match (70%+)</span>
+          </div>
+          <p className="text-2xl font-bold text-success">{stats.highMatch}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setFilterBy('saved')}>
+          <div className="flex items-center gap-2 mb-2">
+            <Star className="w-4 h-4 text-accent" />
+            <span className="text-sm text-muted-foreground">Saved</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{stats.saved}</p>
+        </div>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="flex gap-4 items-center">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by title, company, location..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-2" />
+              {filterBy === 'all' ? 'All' : filterBy === 'analyzed' ? 'Analyzed' : filterBy === 'high_match' ? 'High Match' : 'Saved'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuRadioGroup value={filterBy} onValueChange={(v) => setFilterBy(v as FilterOption)}>
+              <DropdownMenuRadioItem value="all">All Opportunities</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="analyzed">AI Analyzed</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="high_match">High Match (70%+)</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="saved">Saved Only</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              {sortOrder === 'desc' ? <SortDesc className="w-4 h-4 mr-2" /> : <SortAsc className="w-4 h-4 mr-2" />}
+              Sort
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <DropdownMenuRadioItem value="match_score">Match Score</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="posted_date">Posted Date</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="company">Company</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="title">Title</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Order</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={sortOrder} onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}>
+              <DropdownMenuRadioItem value="desc">Descending</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="asc">Ascending</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Selected Regions Summary */}
       {selectedRegions.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -399,17 +555,27 @@ const OpportunityScanner: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Job List */}
         <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredAndSortedJobs.length} of {jobs.length} opportunities
+            </p>
+          </div>
+          
           {isLoading ? (
             <div className="text-center py-12">
               <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
             </div>
-          ) : jobs.length === 0 ? (
+          ) : filteredAndSortedJobs.length === 0 ? (
             <div className="text-center py-12 bg-card border border-border rounded-xl">
               <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No opportunities yet. Click "Scan New" to discover opportunities in your selected regions.</p>
+              <p className="text-muted-foreground">
+                {jobs.length === 0 
+                  ? 'No opportunities yet. Click "Scan New" to discover opportunities in your selected regions.'
+                  : 'No opportunities match your current filters. Try adjusting your search or filters.'}
+              </p>
             </div>
           ) : (
-            jobs.map((job) => (
+            filteredAndSortedJobs.map((job) => (
               <div
                 key={job.id}
                 onClick={() => setSelectedJob(job)}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2, FolderOpen, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Search, Building2, BarChart3, AlertTriangle, Lightbulb, HelpCircle, Loader2, FolderOpen, Trash2, ChevronDown, ChevronUp, Download, RefreshCw, Globe, TrendingUp, Users, FileText, ExternalLink } from 'lucide-react';
 import { generateCompanyDossier } from '@/services/aiService';
 import { CompanyDossier } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 import { jsPDF } from 'jspdf';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 interface InterviewQuestions {
   expected_from_ceo: string[];
@@ -27,6 +29,13 @@ interface SavedDossier {
   created_at: string;
 }
 
+interface ResearchStats {
+  sourcesChecked?: number;
+  sourcesWithData?: number;
+  totalResults?: number;
+  methodsUsed?: string[];
+}
+
 const parseInterviewQuestions = (json: Json): InterviewQuestions => {
   if (json && typeof json === 'object' && !Array.isArray(json)) {
     const obj = json as Record<string, unknown>;
@@ -38,13 +47,22 @@ const parseInterviewQuestions = (json: Json): InterviewQuestions => {
   return { expected_from_ceo: [], to_ask_ceo: [] };
 };
 
+const POPULAR_COMPANIES = [
+  'Apple', 'Microsoft', 'Amazon', 'Google', 'Tesla', 'Meta', 
+  'Siemens', 'SAP', 'BMW', 'Volkswagen', 'Nestlé', 'Novartis',
+  'HSBC', 'Toyota', 'Samsung', 'Saudi Aramco', 'Tata Group'
+];
+
 const DueDiligence: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [dossier, setDossier] = useState<CompanyDossier | null>(null);
+  const [researchStats, setResearchStats] = useState<ResearchStats | null>(null);
   const [savedDossiers, setSavedDossiers] = useState<SavedDossier[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
   const [showSaved, setShowSaved] = useState(true);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
 
   // Load saved dossiers on mount
   useEffect(() => {
@@ -72,13 +90,39 @@ const DueDiligence: React.FC = () => {
     }
   };
 
+  const handleCompanyInput = (value: string) => {
+    setCompanyName(value);
+    if (value.length > 1) {
+      const matches = POPULAR_COMPANIES.filter(c => 
+        c.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setSearchSuggestions(matches);
+    } else {
+      setSearchSuggestions([]);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!companyName) return;
     setIsGenerating(true);
+    setGenerationProgress(0);
+    setSearchSuggestions([]);
+    
+    // Simulate progress for better UX
+    const progressInterval = setInterval(() => {
+      setGenerationProgress(prev => Math.min(prev + Math.random() * 15, 90));
+    }, 500);
+    
     try {
       const result = await generateCompanyDossier(companyName);
+      setGenerationProgress(100);
+      
       if (result) {
         setDossier(result);
+        // Extract research stats if available
+        if ((result as any).researchStats) {
+          setResearchStats((result as any).researchStats);
+        }
         
         // Save to database
         const { data: { user } } = await supabase.auth.getUser();
@@ -100,7 +144,7 @@ const DueDiligence: React.FC = () => {
             toast.error('Failed to save dossier');
           } else {
             toast.success('Dossier saved successfully');
-            loadSavedDossiers(); // Refresh the list
+            loadSavedDossiers();
           }
         }
       }
@@ -108,7 +152,9 @@ const DueDiligence: React.FC = () => {
       console.error(error);
       toast.error('Failed to generate dossier');
     } finally {
+      clearInterval(progressInterval);
       setIsGenerating(false);
+      setGenerationProgress(0);
     }
   };
 
@@ -217,9 +263,48 @@ const DueDiligence: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-heading font-bold text-foreground">Due Diligence</h1>
-        <p className="text-muted-foreground mt-1">AI-powered company research for any company worldwide</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-heading font-bold text-foreground">Due Diligence</h1>
+          <p className="text-muted-foreground mt-1">AI-powered company research for any company worldwide</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/30 rounded-full">
+          <Globe className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-primary">Global Coverage</span>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Saved Dossiers</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{savedDossiers.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="w-4 h-4 text-accent" />
+            <span className="text-sm text-muted-foreground">Companies Analyzed</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">{savedDossiers.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-success" />
+            <span className="text-sm text-muted-foreground">Data Sources</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">10+</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Global Reach</span>
+          </div>
+          <p className="text-2xl font-bold text-foreground">195+</p>
+          <p className="text-xs text-muted-foreground">Countries</p>
+        </div>
       </div>
 
       {/* Saved Dossiers Section */}
@@ -285,18 +370,80 @@ const DueDiligence: React.FC = () => {
       {/* Generate New Dossier */}
       <div className="bg-card border border-border rounded-xl p-6">
         <h3 className="font-heading font-semibold text-foreground mb-4">Generate New Dossier</h3>
-        <div className="flex gap-4 mb-6">
-          <Input 
-            value={companyName} 
-            onChange={(e) => setCompanyName(e.target.value)} 
-            placeholder="Enter any company name worldwide (e.g., Siemens, Toyota, Nestlé, Saudi Aramco...)" 
-            className="flex-1" 
-          />
-          <Button onClick={handleGenerate} disabled={!companyName || isGenerating}>
-            {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-            Generate Dossier
-          </Button>
+        <div className="relative mb-6">
+          <div className="flex gap-4">
+            <div className="flex-1 relative">
+              <Input 
+                value={companyName} 
+                onChange={(e) => handleCompanyInput(e.target.value)} 
+                placeholder="Enter any company name worldwide (e.g., Siemens, Toyota, Nestlé, Saudi Aramco...)" 
+                className="pr-10"
+                onKeyDown={(e) => e.key === 'Enter' && !isGenerating && handleGenerate()}
+              />
+              {searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                  {searchSuggestions.map((suggestion, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setCompanyName(suggestion);
+                        setSearchSuggestions([]);
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-muted/50 transition-colors text-sm"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button onClick={handleGenerate} disabled={!companyName || isGenerating} className="min-w-[160px]">
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Researching...
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4 mr-2" />
+                  Generate Dossier
+                </>
+              )}
+            </Button>
+          </div>
+          
+          {/* Progress indicator during generation */}
+          {isGenerating && (
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Researching {companyName}...</span>
+                <span className="text-primary">{Math.round(generationProgress)}%</span>
+              </div>
+              <Progress value={generationProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                Searching LinkedIn, Glassdoor, financial databases, news sources, and more...
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Popular companies quick search */}
+        {!dossier && !isGenerating && (
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground mb-2">Popular companies:</p>
+            <div className="flex flex-wrap gap-2">
+              {POPULAR_COMPANIES.slice(0, 8).map((company, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCompanyName(company)}
+                  className="px-3 py-1.5 text-sm bg-muted/50 hover:bg-muted rounded-full transition-colors"
+                >
+                  {company}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {dossier ? (
           <div className="space-y-6">
@@ -307,51 +454,110 @@ const DueDiligence: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="text-2xl font-heading font-bold text-foreground">{dossier.companyName}</h2>
-                  <p className="text-muted-foreground">{dossier.headquarters} {dossier.marketCap && `• ${dossier.marketCap}`}</p>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span>{dossier.headquarters}</span>
+                    {dossier.marketCap && (
+                      <>
+                        <span>•</span>
+                        <Badge variant="outline" className="text-success border-success/30">
+                          {dossier.marketCap}
+                        </Badge>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-              <Button onClick={() => exportToPDF(dossier)} variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export PDF
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => handleGenerate()} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+                <Button onClick={() => exportToPDF(dossier)} variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export PDF
+                </Button>
+              </div>
             </div>
+
+            {/* Research Stats */}
+            {researchStats && (
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">Research quality:</span>
+                  <Badge variant="outline">{researchStats.sourcesWithData || 0} of {researchStats.sourcesChecked || 10} sources</Badge>
+                  <Badge variant="outline">{researchStats.totalResults || 0} data points</Badge>
+                  {researchStats.methodsUsed?.map((method, i) => (
+                    <Badge key={i} variant="secondary" className="capitalize">{method}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-primary" />Executive Summary</h3>
-              <p className="text-sm text-muted-foreground">{dossier.executiveSummary}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{dossier.executiveSummary}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-accent" />Key Challenges</h3>
+              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-destructive" />
+                  Key Challenges
+                </h3>
                 <ul className="space-y-2">
-                  {dossier.keyChallenges.map((c, i) => <li key={i} className="text-sm text-muted-foreground flex items-start gap-2"><span className="text-accent">•</span>{c}</li>)}
+                  {dossier.keyChallenges.map((c, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-destructive mt-1">•</span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><Lightbulb className="w-4 h-4 text-success" />Strategic Opportunities</h3>
+              <div className="bg-success/5 border border-success/20 rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-4 h-4 text-success" />
+                  Strategic Opportunities
+                </h3>
                 <ul className="space-y-2">
-                  {dossier.strategicOpportunities.map((o, i) => <li key={i} className="text-sm text-muted-foreground flex items-start gap-2"><span className="text-success">•</span>{o}</li>)}
+                  {dossier.strategicOpportunities.map((o, i) => (
+                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <span className="text-success mt-1">•</span>
+                      <span>{o}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
 
             <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
-              <h3 className="font-semibold text-foreground mb-2">Culture Analysis</h3>
-              <p className="text-sm text-muted-foreground">{dossier.cultureAnalysis}</p>
+              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Culture Analysis
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{dossier.cultureAnalysis}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><HelpCircle className="w-4 h-4 text-primary" />Questions CEO May Ask</h3>
+              <div className="bg-accent/5 border border-accent/20 rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-accent" />
+                  Questions CEO May Ask You
+                </h3>
                 <ul className="space-y-2">
-                  {dossier.interviewQuestions.expected_from_ceo.map((q, i) => <li key={i} className="text-sm text-muted-foreground p-2 bg-muted/30 rounded">{q}</li>)}
+                  {dossier.interviewQuestions.expected_from_ceo.map((q, i) => (
+                    <li key={i} className="text-sm text-muted-foreground p-2 bg-muted/30 rounded">{q}</li>
+                  ))}
                 </ul>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2"><HelpCircle className="w-4 h-4 text-accent" />Questions to Ask CEO</h3>
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-primary" />
+                  Questions to Ask CEO
+                </h3>
                 <ul className="space-y-2">
-                  {dossier.interviewQuestions.to_ask_ceo.map((q, i) => <li key={i} className="text-sm text-muted-foreground p-2 bg-muted/30 rounded">{q}</li>)}
+                  {dossier.interviewQuestions.to_ask_ceo.map((q, i) => (
+                    <li key={i} className="text-sm text-muted-foreground p-2 bg-muted/30 rounded">{q}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -360,7 +566,7 @@ const DueDiligence: React.FC = () => {
             {dossier.sources && dossier.sources.length > 0 && (
               <div className="mt-6 pt-4 border-t border-border">
                 <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Search className="w-4 h-4 text-muted-foreground" />
+                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
                   Research Sources
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -370,8 +576,9 @@ const DueDiligence: React.FC = () => {
                       href={source.uri}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
                     >
+                      <ExternalLink className="w-3 h-3" />
                       {source.title}
                     </a>
                   ))}
@@ -382,7 +589,8 @@ const DueDiligence: React.FC = () => {
         ) : (
           <div className="text-center py-12">
             <Building2 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">Enter a company name to generate an AI-powered intelligence dossier</p>
+            <p className="text-muted-foreground mb-2">Enter a company name to generate an AI-powered intelligence dossier</p>
+            <p className="text-xs text-muted-foreground">Works for any company worldwide - from startups to Fortune 500</p>
           </div>
         )}
       </div>
