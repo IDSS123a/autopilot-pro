@@ -357,10 +357,12 @@ const UserStats: React.FC = () => {
           {dailyActivity.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">No activity data available yet</p>
           ) : (
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <ChartContainer config={chartConfig} className="w-full" style={{ minHeight: '300px', height: '300px' }}>
               <LineChart
                 data={dailyActivity}
                 margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                width={500}
+                height={300}
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis 
