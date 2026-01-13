@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield, UserCog } from 'lucide-react';
+import { Menu, X, LayoutDashboard, FileText, Briefcase, Users, MessageSquare, Settings, LogOut, Building2, Shield, UserCog, CalendarDays } from 'lucide-react';
 import { View } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -22,6 +22,7 @@ const MobileNav: React.FC = () => {
     { id: View.RECRUITERS, icon: Users, label: 'Recruiter Agent', path: '/app/recruiters' },
     { id: View.COMMUNICATION, icon: MessageSquare, label: 'Comms Hub', path: '/app/communication' },
     { id: View.DUE_DILIGENCE, icon: Building2, label: 'Due Diligence', path: '/app/due-diligence' },
+    { id: View.CALENDAR, icon: CalendarDays, label: 'Interview Calendar', path: '/app/calendar' },
   ];
 
   const handleNavigate = (path: string) => {
