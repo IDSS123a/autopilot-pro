@@ -44,6 +44,77 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          company_name: string | null
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          event_date: string
+          event_type: string
+          id: string
+          is_completed: boolean | null
+          location: string | null
+          meeting_link: string | null
+          notes: string | null
+          related_application_id: string | null
+          reminder_minutes: number | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_date: string
+          event_type?: string
+          id?: string
+          is_completed?: boolean | null
+          location?: string | null
+          meeting_link?: string | null
+          notes?: string | null
+          related_application_id?: string | null
+          reminder_minutes?: number | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          is_completed?: boolean | null
+          location?: string | null
+          meeting_link?: string | null
+          notes?: string | null
+          related_application_id?: string | null
+          reminder_minutes?: number | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_related_application_id_fkey"
+            columns: ["related_application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communications: {
         Row: {
           communication_date: string | null

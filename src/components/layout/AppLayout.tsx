@@ -14,6 +14,7 @@ const OpportunityScanner = lazy(() => import('@/components/opportunities/Opportu
 const RecruiterAgent = lazy(() => import('@/components/recruiters/RecruiterAgent'));
 const CommunicationHub = lazy(() => import('@/components/communication/CommunicationHub'));
 const DueDiligence = lazy(() => import('@/components/duediligence/DueDiligence'));
+const InterviewCalendar = lazy(() => import('@/components/calendar/InterviewCalendar').then(m => ({ default: m.InterviewCalendar })));
 const Settings = lazy(() => import('@/components/settings/Settings'));
 const AuthAuditLog = lazy(() => import('@/components/admin/AuthAuditLog'));
 const AdminDashboard = lazy(() => import('@/components/admin/AdminDashboard'));
@@ -68,6 +69,7 @@ const AppLayout: React.FC = () => {
                 <Route path="/recruiters" element={<RecruiterAgent />} />
                 <Route path="/communication" element={<CommunicationHub />} />
                 <Route path="/due-diligence" element={<DueDiligence />} />
+                <Route path="/calendar" element={<InterviewCalendar />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/admin/audit-log" element={<AuthAuditLog />} />
                 <Route path="/admin" element={<AdminDashboard />} />
