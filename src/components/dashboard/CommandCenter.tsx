@@ -8,6 +8,8 @@ import { useLogStore } from '@/store/useLogStore';
 import { useApp } from '@/contexts/AppContext';
 import { generateCampaignStrategy, generateMorningBriefing } from '@/services/aiService';
 import { supabase } from '@/integrations/supabase/client';
+import { ApplicationPipeline } from './ApplicationPipeline';
+import { UpcomingInterviews } from './UpcomingInterviews';
 
 interface DashboardStats {
   applications: number;
@@ -267,6 +269,12 @@ const CommandCenter: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Pipeline and Calendar Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ApplicationPipeline />
+        <UpcomingInterviews />
       </div>
 
       {/* Agent Activity Feed */}

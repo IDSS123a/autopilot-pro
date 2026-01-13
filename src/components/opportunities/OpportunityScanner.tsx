@@ -265,6 +265,32 @@ const OpportunityScanner: React.FC = () => {
         const allJobs = [...newOpportunities, ...jobs].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
         setJobs(allJobs);
         toast.success(`Found ${newOpportunities.length} new opportunities from LinkedIn, Indeed, Glassdoor and more!`);
+        
+        // Send email notification for high-match opportunities
+        const highMatchOpps = newOpportunities.filter((opp: Opportunity) => (opp.match_score || 0) >= 70);
+        if (highMatchOpps.length > 0) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.functions.invoke('send-opportunity-notification', {
+                body: {
+                  user_id: user.id,
+                  opportunities: highMatchOpps.slice(0, 5).map((opp: Opportunity) => ({
+                    id: opp.id,
+                    company_name: opp.company,
+                    position_title: opp.title,
+                    location: opp.location,
+                    salary_range: opp.salary_range,
+                    match_score: opp.match_score
+                  }))
+                }
+              });
+              toast.info('📧 Email notification sent for high-match opportunities');
+            }
+          } catch (emailError) {
+            console.log('Email notification not sent (API key may not be configured):', emailError);
+          }
+        }
       } else {
         toast.info('No new opportunities found for selected regions');
       }
