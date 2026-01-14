@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star } from 'lucide-react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star, CalendarPlus } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
@@ -18,6 +18,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
+import { ScheduleInterviewDialog } from './ScheduleInterviewDialog';
 
 const WORLD_REGIONS = [
   { id: 'dach', name: 'DACH (Germany, Austria, Switzerland)', countries: ['Germany', 'Austria', 'Switzerland'] },
@@ -58,6 +59,8 @@ const OpportunityScanner: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('match_score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleOpportunity, setScheduleOpportunity] = useState<Opportunity | null>(null);
 
   useEffect(() => {
     loadSavedOpportunities();
@@ -667,32 +670,47 @@ const OpportunityScanner: React.FC = () => {
                     <span className="px-2 py-1 bg-muted rounded">{job.source}</span>
                     <span className="px-2 py-1 bg-muted rounded">{job.posted_date}</span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={job.match_score > 0 ? "outline" : "default"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAnalyze(job);
-                    }}
-                    disabled={analyzingId === job.id}
-                  >
-                    {analyzingId === job.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing
-                      </>
-                    ) : job.match_score > 0 ? (
-                      <>
-                        <Check className="w-4 h-4 mr-2" />
-                        Analyzed
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        AI Analyze
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setScheduleOpportunity(job);
+                        setScheduleDialogOpen(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100"
+                    >
+                      <CalendarPlus className="w-4 h-4 mr-1" />
+                      Schedule
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={job.match_score > 0 ? "outline" : "default"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAnalyze(job);
+                      }}
+                      disabled={analyzingId === job.id}
+                    >
+                      {analyzingId === job.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Analyzing
+                        </>
+                      ) : job.match_score > 0 ? (
+                        <>
+                          <Check className="w-4 h-4 mr-2" />
+                          Analyzed
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          AI Analyze
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))
@@ -763,9 +781,22 @@ const OpportunityScanner: React.FC = () => {
                 <p className="text-sm text-muted-foreground">{selectedJob.ai_analysis.strategy}</p>
               </div>
 
-              <Button className="w-full">
-                Apply to {selectedJob.company}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setScheduleOpportunity(selectedJob);
+                    setScheduleDialogOpen(true);
+                  }}
+                >
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  Zakaži intervju
+                </Button>
+                <Button className="flex-1">
+                  Apply to {selectedJob.company}
+                </Button>
+              </div>
             </div>
           ) : selectedJob ? (
             <div className="text-center py-8">
@@ -784,6 +815,19 @@ const OpportunityScanner: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Schedule Interview Dialog */}
+      <ScheduleInterviewDialog
+        opportunity={scheduleOpportunity}
+        isOpen={scheduleDialogOpen}
+        onClose={() => {
+          setScheduleDialogOpen(false);
+          setScheduleOpportunity(null);
+        }}
+        onSuccess={() => {
+          toast.success('Intervju dodan u kalendar!');
+        }}
+      />
     </div>
   );
 };

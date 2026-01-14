@@ -25,7 +25,9 @@ import {
   Trash2,
   Edit,
   AlertCircle,
-  CalendarCheck
+  CalendarCheck,
+  Send,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -74,6 +76,7 @@ export function InterviewCalendar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [upcomingReminders, setUpcomingReminders] = useState<CalendarEvent[]>([]);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -214,6 +217,23 @@ export function InterviewCalendar() {
     } catch (error) {
       console.error('Error updating event:', error);
       toast.error('Greška pri ažuriranju događaja');
+    }
+  };
+
+  const handleSendReminder = async (event: CalendarEvent) => {
+    setSendingReminder(event.id);
+    try {
+      const { error } = await supabase.functions.invoke('send-interview-reminder', {
+        body: { event_id: event.id }
+      });
+      
+      if (error) throw error;
+      toast.success('Email podsjetnik poslan!');
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      toast.error('Greška pri slanju podsjetnika. Provjerite da li je RESEND_API_KEY konfigurisan.');
+    } finally {
+      setSendingReminder(null);
     }
   };
 
@@ -644,6 +664,20 @@ export function InterviewCalendar() {
                             </div>
                           </div>
                           <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              title="Pošalji email podsjetnik"
+                              disabled={sendingReminder === event.id || event.is_completed}
+                              onClick={() => handleSendReminder(event)}
+                            >
+                              {sendingReminder === event.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                            </Button>
                             <Button 
                               variant="ghost" 
                               size="icon" 
