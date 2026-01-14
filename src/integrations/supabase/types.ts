@@ -44,6 +44,44 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_event_sync: {
+        Row: {
+          created_at: string
+          google_event_id: string
+          id: string
+          last_synced_at: string
+          local_event_id: string
+          sync_direction: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          google_event_id: string
+          id?: string
+          last_synced_at?: string
+          local_event_id: string
+          sync_direction?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          google_event_id?: string
+          id?: string
+          last_synced_at?: string
+          local_event_id?: string
+          sync_direction?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_sync_local_event_id_fkey"
+            columns: ["local_event_id"]
+            isOneToOne: true
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           company_name: string | null
@@ -208,6 +246,45 @@ export type Database = {
           key_challenges?: string[] | null
           market_cap?: string | null
           strategic_opportunities?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_calendar_tokens: {
+        Row: {
+          access_token: string
+          calendar_id: string | null
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          refresh_token: string
+          sync_enabled: boolean | null
+          token_expiry: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          calendar_id?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          refresh_token: string
+          sync_enabled?: boolean | null
+          token_expiry: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          calendar_id?: string | null
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          refresh_token?: string
+          sync_enabled?: boolean | null
+          token_expiry?: string
           updated_at?: string
           user_id?: string
         }
