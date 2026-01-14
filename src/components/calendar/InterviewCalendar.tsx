@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { GoogleCalendarSync } from './GoogleCalendarSync';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -366,6 +367,9 @@ export function InterviewCalendar() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Google Calendar Integration */}
+      <GoogleCalendarSync />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
