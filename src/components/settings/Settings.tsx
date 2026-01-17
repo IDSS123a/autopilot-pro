@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import ChangePassword from './ChangePassword';
+import NotificationSettings from './NotificationSettings';
 
 const Settings: React.FC = () => {
   const { userProfile, updateUserProfile, user } = useApp();
@@ -94,6 +95,9 @@ const Settings: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Notification Settings Section */}
+      <NotificationSettings />
 
       {/* Change Password Section */}
       <ChangePassword />

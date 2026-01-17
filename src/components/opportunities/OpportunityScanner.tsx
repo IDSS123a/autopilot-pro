@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star, CalendarPlus, ShieldCheck, Bot, Database, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star, CalendarPlus, ShieldCheck, Bot, Database, AlertCircle, Bell, BellRing } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -170,7 +171,7 @@ const VerificationBadge: React.FC<{ status?: Opportunity['verification_status'] 
 
 
 const OpportunityScanner: React.FC = () => {
-  const { userProfile } = useApp();
+  const { userProfile, user } = useApp();
   const [jobs, setJobs] = useState<Opportunity[]>([]);
   const [savedOpportunities, setSavedOpportunities] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,10 +185,111 @@ const OpportunityScanner: React.FC = () => {
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleOpportunity, setScheduleOpportunity] = useState<Opportunity | null>(null);
+  const [realtimeEnabled, setRealtimeEnabled] = useState(true);
+
+  // Push notifications hook
+  const { 
+    permission: notifPermission, 
+    isSupported: notifSupported, 
+    requestPermission: requestNotifPermission,
+    notifyHighMatchOpportunity 
+  } = usePushNotifications();
+
+  // Load notification preferences
+  const getNotificationPrefs = useCallback(() => {
+    try {
+      const saved = localStorage.getItem('notification_preferences');
+      return saved ? JSON.parse(saved) : { pushEnabled: true, minMatchScore: 70, onlyVerified: false };
+    } catch {
+      return { pushEnabled: true, minMatchScore: 70, onlyVerified: false };
+    }
+  }, []);
 
   useEffect(() => {
     loadSavedOpportunities();
   }, []);
+
+  // Realtime subscription for new opportunities
+  useEffect(() => {
+    if (!user?.id || !realtimeEnabled) return;
+
+    const prefs = getNotificationPrefs();
+
+    const channel = supabase
+      .channel(`opportunities-realtime-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'opportunities',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('🔔 New opportunity detected via realtime:', payload.new);
+          const newOpp = payload.new as any;
+          
+          // Parse and add to jobs list
+          const mappedOpp: Opportunity = {
+            id: newOpp.id,
+            title: newOpp.position_title,
+            company: newOpp.company_name,
+            location: newOpp.location || '',
+            salary_range: newOpp.salary_range || '',
+            match_score: newOpp.match_score || 0,
+            status: (newOpp.status as Opportunity['status']) || 'New',
+            source: newOpp.source || '',
+            posted_date: newOpp.posted_date || '',
+            description: newOpp.job_description || '',
+            data_quality: parseDataQuality(newOpp.notes),
+            source_reliability: parseSourceReliability(newOpp.notes),
+            verification_status: parseVerificationStatus(newOpp.notes),
+          };
+
+          // Add to jobs list (avoiding duplicates)
+          setJobs(prev => {
+            if (prev.some(j => j.id === mappedOpp.id)) return prev;
+            return [mappedOpp, ...prev].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
+          });
+
+          // Send push notification if criteria met
+          const dataQuality = parseDataQuality(newOpp.notes);
+          const matchScore = newOpp.match_score || 0;
+          
+          if (prefs.pushEnabled && notifPermission === 'granted') {
+            const shouldNotify = matchScore >= prefs.minMatchScore && 
+              (!prefs.onlyVerified || dataQuality === 'verified');
+            
+            if (shouldNotify) {
+              notifyHighMatchOpportunity({
+                title: mappedOpp.title,
+                company: mappedOpp.company,
+                match_score: matchScore,
+                data_quality: dataQuality,
+                id: mappedOpp.id,
+              });
+            }
+          }
+
+          // Show in-app toast
+          const qualityIcon = dataQuality === 'verified' ? '✅' : dataQuality === 'scraped' ? '📊' : '🤖';
+          toast.success(
+            `${qualityIcon} New opportunity: ${mappedOpp.title}`,
+            {
+              description: `${mappedOpp.company} • ${matchScore}% match`,
+              duration: 6000,
+            }
+          );
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, realtimeEnabled, notifPermission, notifyHighMatchOpportunity, getNotificationPrefs]);
 
   const loadSavedOpportunities = async () => {
     setIsLoading(true);
