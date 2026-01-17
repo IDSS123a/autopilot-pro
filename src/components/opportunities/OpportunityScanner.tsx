@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star, CalendarPlus } from 'lucide-react';
+import { Search, MapPin, DollarSign, Building, Sparkles, Loader2, Globe, BarChart2, Check, ChevronDown, Save, Trash2, Filter, SortAsc, SortDesc, TrendingUp, Clock, Star, CalendarPlus, ShieldCheck, Bot, Database, AlertCircle } from 'lucide-react';
 import { Opportunity } from '@/types';
 import { analyzeOpportunity } from '@/services/aiService';
 import { useApp } from '@/contexts/AppContext';
@@ -46,6 +46,129 @@ const WORLD_REGIONS = [
 type SortOption = 'match_score' | 'posted_date' | 'company' | 'title';
 type FilterOption = 'all' | 'analyzed' | 'high_match' | 'saved';
 
+// Helper functions to parse data quality fields from notes JSON
+const parseDataQuality = (notes: string | null): Opportunity['data_quality'] => {
+  if (!notes) return undefined;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed.data_quality || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseSourceReliability = (notes: string | null): Opportunity['source_reliability'] => {
+  if (!notes) return undefined;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed.source_reliability || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const parseVerificationStatus = (notes: string | null): Opportunity['verification_status'] => {
+  if (!notes) return undefined;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed.verification_status || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+// Data Quality Badge Component
+const DataQualityBadge: React.FC<{ quality?: Opportunity['data_quality'] }> = ({ quality }) => {
+  if (!quality) return null;
+  
+  const config = {
+    verified: {
+      icon: ShieldCheck,
+      label: 'Verified',
+      className: 'bg-success/20 text-success border-success/30'
+    },
+    scraped: {
+      icon: Database,
+      label: 'Scraped',
+      className: 'bg-accent/20 text-accent border-accent/30'
+    },
+    ai_generated: {
+      icon: Bot,
+      label: 'AI Generated',
+      className: 'bg-primary/20 text-primary border-primary/30'
+    }
+  };
+  
+  const { icon: Icon, label, className } = config[quality];
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${className}`}>
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
+};
+
+// Source Reliability Badge Component
+const SourceReliabilityBadge: React.FC<{ reliability?: Opportunity['source_reliability'] }> = ({ reliability }) => {
+  if (!reliability) return null;
+  
+  const config = {
+    high: {
+      label: 'High Reliability',
+      className: 'bg-success/10 text-success border-success/20'
+    },
+    medium: {
+      label: 'Medium Reliability',
+      className: 'bg-accent/10 text-accent border-accent/20'
+    },
+    low: {
+      label: 'Low Reliability',
+      className: 'bg-destructive/10 text-destructive border-destructive/20'
+    }
+  };
+  
+  const { label, className } = config[reliability];
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${className}`}>
+      {label}
+    </span>
+  );
+};
+
+// Verification Status Badge Component  
+const VerificationBadge: React.FC<{ status?: Opportunity['verification_status'] }> = ({ status }) => {
+  if (!status) return null;
+  
+  const config = {
+    verified: {
+      icon: ShieldCheck,
+      label: 'Verified',
+      className: 'text-success'
+    },
+    unverified: {
+      icon: AlertCircle,
+      label: 'Unverified',
+      className: 'text-muted-foreground'
+    },
+    pending: {
+      icon: Clock,
+      label: 'Pending',
+      className: 'text-accent'
+    }
+  };
+  
+  const { icon: Icon, label, className } = config[status];
+  
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`} title={label}>
+      <Icon className="w-3.5 h-3.5" />
+    </span>
+  );
+};
+
+
 const OpportunityScanner: React.FC = () => {
   const { userProfile } = useApp();
   const [jobs, setJobs] = useState<Opportunity[]>([]);
@@ -80,7 +203,7 @@ const OpportunityScanner: React.FC = () => {
         if (error) throw error;
         
         if (data && data.length > 0) {
-          const mappedJobs: Opportunity[] = data.map(opp => ({
+            const mappedJobs: Opportunity[] = data.map(opp => ({
             id: opp.id,
             title: opp.position_title,
             company: opp.company_name,
@@ -90,7 +213,11 @@ const OpportunityScanner: React.FC = () => {
             status: (opp.status as Opportunity['status']) || 'New',
             source: opp.source || '',
             posted_date: opp.posted_date || '',
-            description: opp.job_description || ''
+            description: opp.job_description || '',
+            // Map data quality fields from notes (stored as JSON)
+            data_quality: parseDataQuality(opp.notes),
+            source_reliability: parseSourceReliability(opp.notes),
+            verification_status: parseVerificationStatus(opp.notes)
           }));
           setJobs(mappedJobs);
           setSavedOpportunities(data.map(d => d.id));
@@ -614,7 +741,10 @@ const OpportunityScanner: React.FC = () => {
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-heading font-semibold text-foreground">{job.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-heading font-semibold text-foreground">{job.title}</h3>
+                      <VerificationBadge status={job.verification_status} />
+                    </div>
                     <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                       <Building className="w-4 h-4" />
                       <span>{job.company}</span>
@@ -666,9 +796,11 @@ const OpportunityScanner: React.FC = () => {
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{job.description}</p>
 
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                     <span className="px-2 py-1 bg-muted rounded">{job.source}</span>
                     <span className="px-2 py-1 bg-muted rounded">{job.posted_date}</span>
+                    <DataQualityBadge quality={job.data_quality} />
+                    <SourceReliabilityBadge reliability={job.source_reliability} />
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -740,6 +872,29 @@ const OpportunityScanner: React.FC = () => {
                   <p className="text-xs text-muted-foreground">Cultural Fit</p>
                 </div>
               </div>
+
+              {/* Data Quality Indicators */}
+              {(selectedJob.data_quality || selectedJob.source_reliability || selectedJob.verification_status) && (
+                <div className="p-3 bg-muted/20 rounded-lg border border-border">
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Data Quality</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <DataQualityBadge quality={selectedJob.data_quality} />
+                    <SourceReliabilityBadge reliability={selectedJob.source_reliability} />
+                    {selectedJob.verification_status && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${
+                        selectedJob.verification_status === 'verified' ? 'bg-success/20 text-success border-success/30' :
+                        selectedJob.verification_status === 'pending' ? 'bg-accent/20 text-accent border-accent/30' :
+                        'bg-muted text-muted-foreground border-border'
+                      }`}>
+                        {selectedJob.verification_status === 'verified' && <ShieldCheck className="w-3 h-3" />}
+                        {selectedJob.verification_status === 'pending' && <Clock className="w-3 h-3" />}
+                        {selectedJob.verification_status === 'unverified' && <AlertCircle className="w-3 h-3" />}
+                        {selectedJob.verification_status.charAt(0).toUpperCase() + selectedJob.verification_status.slice(1)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
