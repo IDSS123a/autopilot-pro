@@ -58,6 +58,10 @@ export interface Opportunity {
   source: string;
   posted_date: string;
   description: string;
+  // Data quality fields
+  data_quality?: 'verified' | 'scraped' | 'ai_generated';
+  source_reliability?: 'high' | 'medium' | 'low';
+  verification_status?: 'verified' | 'unverified' | 'pending';
   ai_analysis?: {
     fit: string;
     gaps: string[];
