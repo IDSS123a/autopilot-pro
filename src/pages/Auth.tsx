@@ -83,7 +83,8 @@ const Auth = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!email) {
+    // Email is required for all modes EXCEPT reset mode
+    if (mode !== 'reset' && !email) {
       toast({
         title: "Missing email",
         description: "Please enter your email address",
@@ -92,7 +93,8 @@ const Auth = () => {
       return;
     }
 
-    if (mode !== 'forgot-password' && !password) {
+    // Password is required for login, signup, and reset modes
+    if ((mode === 'login' || mode === 'signup' || mode === 'reset') && !password) {
       toast({
         title: "Missing password",
         description: "Please enter your password",
