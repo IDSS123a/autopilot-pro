@@ -44,6 +44,32 @@ const WORLD_REGIONS = [
   { id: 'caribbean', name: 'Caribbean', countries: ['Jamaica', 'Bahamas', 'Dominican Republic', 'Puerto Rico'] },
 ];
 
+// Industry categories for filtering
+const INDUSTRY_OPTIONS = [
+  { id: 'all', name: 'All Industries' },
+  { id: 'technology', name: 'Technology' },
+  { id: 'finance', name: 'Finance & Banking' },
+  { id: 'healthcare', name: 'Healthcare' },
+  { id: 'manufacturing', name: 'Manufacturing' },
+  { id: 'retail', name: 'Retail & E-commerce' },
+  { id: 'energy', name: 'Energy & Utilities' },
+  { id: 'telecommunications', name: 'Telecommunications' },
+  { id: 'automotive', name: 'Automotive' },
+  { id: 'consulting', name: 'Consulting' },
+  { id: 'media', name: 'Media & Entertainment' },
+  { id: 'pharma', name: 'Pharma & Biotech' },
+  { id: 'insurance', name: 'Insurance' },
+];
+
+// Experience level options
+const EXPERIENCE_LEVELS = [
+  { id: 'all', name: 'All Levels' },
+  { id: 'c_level', name: 'C-Level (CEO, CTO, CFO...)' },
+  { id: 'vp', name: 'VP / SVP / EVP' },
+  { id: 'director', name: 'Director / Head of' },
+  { id: 'manager', name: 'Senior Manager' },
+];
+
 type SortOption = 'match_score' | 'posted_date' | 'company' | 'title';
 type FilterOption = 'all' | 'analyzed' | 'high_match' | 'saved';
 
@@ -177,7 +203,7 @@ const OpportunityScanner: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Opportunity | null>(null);
-  const [selectedRegions, setSelectedRegions] = useState<string[]>(['dach', 'see']);
+  const [selectedRegions, setSelectedRegions] = useState<string[]>(['see']);
   const [isScanning, setIsScanning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('match_score');
@@ -186,6 +212,10 @@ const OpportunityScanner: React.FC = () => {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleOpportunity, setScheduleOpportunity] = useState<Opportunity | null>(null);
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
+  
+  // New filters for industry and experience level
+  const [industryFilter, setIndustryFilter] = useState<string>('all');
+  const [experienceLevelFilter, setExperienceLevelFilter] = useState<string>('all');
 
   // Push notifications hook
   const { 
@@ -476,7 +506,9 @@ const OpportunityScanner: React.FC = () => {
             targetRole: userProfile.targetRole,
             industries: userProfile.industries,
             bio: userProfile.bio
-          }
+          },
+          industryFilter: industryFilter !== 'all' ? industryFilter : undefined,
+          experienceLevelFilter: experienceLevelFilter !== 'all' ? experienceLevelFilter : undefined
         }
       });
 
@@ -742,8 +774,8 @@ const OpportunityScanner: React.FC = () => {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="flex gap-4 items-center">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[200px] relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by title, company, location..."
@@ -753,6 +785,51 @@ const OpportunityScanner: React.FC = () => {
           />
         </div>
         
+        {/* Industry Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Building className="w-4 h-4 mr-2" />
+              {INDUSTRY_OPTIONS.find(i => i.id === industryFilter)?.name || 'Industry'}
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="max-h-64 overflow-y-auto">
+            <DropdownMenuLabel>Filter by Industry</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={industryFilter} onValueChange={setIndustryFilter}>
+              {INDUSTRY_OPTIONS.map(industry => (
+                <DropdownMenuRadioItem key={industry.id} value={industry.id}>
+                  {industry.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Experience Level Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <BarChart2 className="w-4 h-4 mr-2" />
+              {EXPERIENCE_LEVELS.find(l => l.id === experienceLevelFilter)?.name || 'Level'}
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Filter by Experience Level</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={experienceLevelFilter} onValueChange={setExperienceLevelFilter}>
+              {EXPERIENCE_LEVELS.map(level => (
+                <DropdownMenuRadioItem key={level.id} value={level.id}>
+                  {level.name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        {/* Status Filter */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
