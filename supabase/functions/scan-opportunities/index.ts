@@ -23,7 +23,36 @@ interface VerifiedOpportunity {
   data_quality: 'verified' | 'scraped' | 'ai_generated';
   source_reliability: 'high' | 'medium' | 'low';
   scraped_at?: string;
+  industry?: string;
+  experience_level?: string;
 }
+
+// Region name normalization - maps frontend names to config keys
+const REGION_NAME_MAP: Record<string, string> = {
+  'see (southeast europe)': 'SEE',
+  'southeast europe': 'SEE',
+  'see': 'SEE',
+  'dach (germany, austria, switzerland)': 'DACH',
+  'dach': 'DACH',
+  'nordics': 'Nordics',
+  'uk & ireland': 'UK',
+  'uk': 'UK',
+  'north america': 'North America',
+  'middle east': 'Middle East',
+  'asia': 'Asia',
+  'oceania': 'Oceania',
+  'eastern europe': 'Eastern Europe',
+  'latin america': 'Latin America',
+  'africa': 'Africa',
+  'benelux': 'Benelux',
+  'france': 'France',
+  'iberia': 'Iberia',
+  'italy': 'Italy',
+  'baltics': 'Baltics',
+  'south asia': 'Asia',
+  'southeast asia': 'Asia',
+  'east asia': 'Asia',
+};
 
 // Region to Adzuna country mapping
 const ADZUNA_COUNTRIES: Record<string, string[]> = {
@@ -31,29 +60,72 @@ const ADZUNA_COUNTRIES: Record<string, string[]> = {
   'UK': ['gb'],
   'North America': ['us', 'ca'],
   'Nordics': ['se', 'no', 'dk', 'fi'],
-  'SEE': ['pl', 'cz', 'hu'], // Closest Adzuna markets
+  'SEE': ['pl'], // Closest Adzuna market for SEE
   'Eastern Europe': ['pl', 'cz', 'hu', 'ro'],
   'Asia': ['sg', 'in'],
   'Oceania': ['au', 'nz'],
   'Middle East': ['ae'],
   'Latin America': ['br', 'mx'],
   'Africa': ['za'],
+  'Benelux': ['nl', 'be'],
+  'France': ['fr'],
+  'Italy': ['it'],
+  'Iberia': ['es', 'pt'],
 };
 
-// Region to JSearch location mapping
+// Region to JSearch location mapping - STRICT location queries
 const JSEARCH_LOCATIONS: Record<string, string[]> = {
-  'DACH': ['Germany', 'Munich, Germany', 'Berlin, Germany', 'Austria', 'Vienna, Austria', 'Switzerland', 'Zurich, Switzerland'],
-  'SEE': ['Croatia', 'Zagreb, Croatia', 'Serbia', 'Belgrade, Serbia', 'Slovenia', 'Ljubljana, Slovenia', 'Bosnia and Herzegovina'],
-  'Nordics': ['Sweden', 'Stockholm, Sweden', 'Norway', 'Oslo, Norway', 'Denmark', 'Copenhagen, Denmark', 'Finland', 'Helsinki, Finland'],
-  'UK': ['United Kingdom', 'London, UK', 'Manchester, UK', 'Dublin, Ireland'],
-  'North America': ['United States', 'New York, USA', 'San Francisco, USA', 'Los Angeles, USA', 'Canada', 'Toronto, Canada'],
-  'Middle East': ['United Arab Emirates', 'Dubai, UAE', 'Saudi Arabia', 'Riyadh, Saudi Arabia', 'Israel', 'Tel Aviv, Israel'],
-  'Asia': ['Singapore', 'Hong Kong', 'Japan', 'Tokyo, Japan', 'India', 'Bangalore, India'],
-  'Oceania': ['Australia', 'Sydney, Australia', 'Melbourne, Australia', 'New Zealand', 'Auckland, New Zealand'],
-  'Eastern Europe': ['Poland', 'Warsaw, Poland', 'Czech Republic', 'Prague, Czech Republic', 'Hungary', 'Budapest, Hungary', 'Romania', 'Bucharest, Romania'],
-  'Latin America': ['Brazil', 'São Paulo, Brazil', 'Argentina', 'Buenos Aires, Argentina', 'Mexico', 'Mexico City, Mexico'],
-  'Africa': ['South Africa', 'Johannesburg, South Africa', 'Nigeria', 'Lagos, Nigeria', 'Kenya', 'Nairobi, Kenya'],
+  'DACH': ['Germany', 'Munich Germany', 'Berlin Germany', 'Austria', 'Vienna Austria', 'Switzerland', 'Zurich Switzerland'],
+  'SEE': ['Croatia', 'Zagreb Croatia', 'Serbia', 'Belgrade Serbia', 'Slovenia', 'Ljubljana Slovenia', 'Bosnia Herzegovina', 'Sarajevo', 'North Macedonia', 'Skopje', 'Montenegro', 'Podgorica', 'Albania', 'Tirana', 'Kosovo', 'Pristina'],
+  'Nordics': ['Sweden', 'Stockholm Sweden', 'Norway', 'Oslo Norway', 'Denmark', 'Copenhagen Denmark', 'Finland', 'Helsinki Finland'],
+  'UK': ['United Kingdom', 'London UK', 'Manchester UK', 'Dublin Ireland', 'Ireland'],
+  'North America': ['United States', 'New York USA', 'San Francisco USA', 'Los Angeles USA', 'Canada', 'Toronto Canada'],
+  'Middle East': ['United Arab Emirates', 'Dubai UAE', 'Saudi Arabia', 'Riyadh', 'Israel', 'Tel Aviv Israel', 'Qatar', 'Doha'],
+  'Asia': ['Singapore', 'Hong Kong', 'Japan', 'Tokyo Japan', 'India', 'Bangalore India', 'Mumbai India'],
+  'Oceania': ['Australia', 'Sydney Australia', 'Melbourne Australia', 'New Zealand', 'Auckland New Zealand'],
+  'Eastern Europe': ['Poland', 'Warsaw Poland', 'Czech Republic', 'Prague', 'Hungary', 'Budapest Hungary', 'Romania', 'Bucharest Romania', 'Bulgaria', 'Sofia Bulgaria'],
+  'Latin America': ['Brazil', 'Sao Paulo Brazil', 'Argentina', 'Buenos Aires Argentina', 'Mexico', 'Mexico City Mexico', 'Chile', 'Colombia'],
+  'Africa': ['South Africa', 'Johannesburg South Africa', 'Cape Town', 'Nigeria', 'Lagos Nigeria', 'Kenya', 'Nairobi Kenya'],
+  'Benelux': ['Netherlands', 'Amsterdam Netherlands', 'Belgium', 'Brussels Belgium', 'Luxembourg'],
+  'France': ['France', 'Paris France', 'Lyon France'],
+  'Italy': ['Italy', 'Milan Italy', 'Rome Italy'],
+  'Iberia': ['Spain', 'Madrid Spain', 'Barcelona Spain', 'Portugal', 'Lisbon Portugal'],
+  'Baltics': ['Estonia', 'Tallinn Estonia', 'Latvia', 'Riga Latvia', 'Lithuania', 'Vilnius Lithuania'],
 };
+
+// Location keywords for strict filtering - jobs MUST contain these to be included
+const REGION_LOCATION_KEYWORDS: Record<string, string[]> = {
+  'SEE': ['croatia', 'zagreb', 'split', 'rijeka', 'serbia', 'belgrade', 'novi sad', 'slovenia', 'ljubljana', 'maribor', 'bosnia', 'sarajevo', 'banja luka', 'macedonia', 'skopje', 'montenegro', 'podgorica', 'albania', 'tirana', 'kosovo', 'pristina', 'balkan'],
+  'DACH': ['germany', 'deutschland', 'munich', 'münchen', 'berlin', 'frankfurt', 'hamburg', 'austria', 'österreich', 'vienna', 'wien', 'switzerland', 'schweiz', 'zurich', 'zürich', 'geneva', 'genf', 'basel'],
+  'Nordics': ['sweden', 'sverige', 'stockholm', 'gothenburg', 'norway', 'norge', 'oslo', 'bergen', 'denmark', 'danmark', 'copenhagen', 'finland', 'suomi', 'helsinki'],
+  'UK': ['united kingdom', 'uk', 'london', 'manchester', 'birmingham', 'leeds', 'glasgow', 'edinburgh', 'ireland', 'dublin', 'belfast', 'britain', 'british'],
+  'North America': ['usa', 'united states', 'america', 'new york', 'california', 'san francisco', 'los angeles', 'chicago', 'boston', 'seattle', 'austin', 'texas', 'canada', 'toronto', 'vancouver', 'montreal'],
+  'Middle East': ['uae', 'dubai', 'abu dhabi', 'saudi', 'riyadh', 'jeddah', 'qatar', 'doha', 'bahrain', 'israel', 'tel aviv', 'kuwait', 'oman'],
+  'Asia': ['singapore', 'hong kong', 'japan', 'tokyo', 'osaka', 'china', 'shanghai', 'beijing', 'korea', 'seoul', 'india', 'mumbai', 'bangalore', 'delhi', 'malaysia', 'kuala lumpur', 'thailand', 'bangkok', 'vietnam', 'indonesia', 'jakarta'],
+  'Oceania': ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'new zealand', 'auckland', 'wellington'],
+  'Eastern Europe': ['poland', 'warsaw', 'krakow', 'czech', 'prague', 'hungary', 'budapest', 'romania', 'bucharest', 'bulgaria', 'sofia'],
+  'Latin America': ['brazil', 'brasil', 'sao paulo', 'rio de janeiro', 'argentina', 'buenos aires', 'mexico', 'ciudad de mexico', 'chile', 'santiago', 'colombia', 'bogota', 'peru', 'lima'],
+  'Africa': ['south africa', 'johannesburg', 'cape town', 'nigeria', 'lagos', 'kenya', 'nairobi', 'egypt', 'cairo', 'morocco', 'casablanca'],
+  'Benelux': ['netherlands', 'holland', 'amsterdam', 'rotterdam', 'belgium', 'brussels', 'antwerp', 'luxembourg'],
+  'France': ['france', 'paris', 'lyon', 'marseille', 'toulouse'],
+  'Italy': ['italy', 'italia', 'milan', 'milano', 'rome', 'roma', 'turin', 'torino'],
+  'Iberia': ['spain', 'españa', 'madrid', 'barcelona', 'portugal', 'lisbon', 'lisboa', 'porto'],
+  'Baltics': ['estonia', 'tallinn', 'latvia', 'riga', 'lithuania', 'vilnius'],
+};
+// Industry categories for filtering
+const INDUSTRY_CATEGORIES = [
+  'Technology', 'Finance', 'Healthcare', 'Manufacturing', 'Retail',
+  'Energy', 'Telecommunications', 'Automotive', 'Consulting', 'Media',
+  'Real Estate', 'Logistics', 'Pharma', 'Insurance', 'Education'
+];
+
+// Experience levels
+const EXPERIENCE_LEVELS = [
+  { id: 'c_level', name: 'C-Level', keywords: ['ceo', 'cto', 'cfo', 'coo', 'cmo', 'cio', 'cdo', 'cpo', 'chief'] },
+  { id: 'vp', name: 'VP/SVP/EVP', keywords: ['vice president', 'vp', 'svp', 'evp', 'senior vice'] },
+  { id: 'director', name: 'Director/Head', keywords: ['director', 'head of', 'senior director'] },
+  { id: 'manager', name: 'Senior Manager', keywords: ['senior manager', 'manager', 'lead'] }
+];
 
 // The Muse location mappings
 const MUSE_LOCATIONS: Record<string, string[]> = {
@@ -68,10 +140,53 @@ const MUSE_LOCATIONS: Record<string, string[]> = {
   'Oceania': ['Sydney, Australia', 'Melbourne, Australia'],
   'Latin America': ['Brazil', 'Mexico'],
   'Africa': ['South Africa'],
+  'Benelux': ['Amsterdam, Netherlands', 'Brussels, Belgium'],
+  'France': ['Paris, France'],
+  'Italy': ['Milan, Italy', 'Rome, Italy'],
+  'Iberia': ['Madrid, Spain', 'Barcelona, Spain', 'Lisbon, Portugal'],
+  'Baltics': ['Europe'],
 };
 
+// Helper function to normalize region names
+function normalizeRegionName(regionInput: string): string {
+  const lower = regionInput.toLowerCase().trim();
+  return REGION_NAME_MAP[lower] || regionInput;
+}
+
+// Helper function to strictly filter jobs by region location
+function jobMatchesRegion(job: VerifiedOpportunity, normalizedRegions: string[]): boolean {
+  const locationLower = (job.location || '').toLowerCase();
+  const descLower = (job.description || '').toLowerCase();
+  const companyLower = (job.company || '').toLowerCase();
+  
+  for (const region of normalizedRegions) {
+    const keywords = REGION_LOCATION_KEYWORDS[region] || [];
+    for (const keyword of keywords) {
+      if (locationLower.includes(keyword) || descLower.includes(keyword)) {
+        return true;
+      }
+    }
+    // Also check against config locations
+    const config = REGION_CONFIGS[region];
+    if (config) {
+      for (const loc of config.locations) {
+        if (locationLower.includes(loc.toLowerCase())) {
+          return true;
+        }
+      }
+      // Check if company is from this region
+      for (const company of config.realCompanies) {
+        if (companyLower.includes(company.toLowerCase())) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Comprehensive region configurations
-const REGION_CONFIGS: Record<string, { 
+const REGION_CONFIGS: Record<string, {
   locations: string[], 
   currency: string,
   jobBoardDomains: { domain: string; reliability: 'high' | 'medium' | 'low' }[],
@@ -233,7 +348,7 @@ serve(async (req) => {
   }
 
   try {
-    const { regions, userProfile, daysBack = 7, maxResults = 500 } = await req.json();
+    const { regions, userProfile, daysBack = 7, maxResults = 500, industryFilter, experienceLevelFilter } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
@@ -250,6 +365,7 @@ serve(async (req) => {
     }
 
     console.log('🔍 Starting comprehensive opportunity scan for regions:', regions);
+    console.log('🔧 Filters - Industry:', industryFilter || 'All', 'Experience:', experienceLevelFilter || 'All');
     console.log('📊 API Keys available:', {
       rapidApi: !!RAPIDAPI_KEY,
       adzuna: !!ADZUNA_APP_ID && !!ADZUNA_API_KEY,
@@ -263,20 +379,34 @@ serve(async (req) => {
     // Extract role keywords for search
     const roleKeywords = targetRole.split(/[\/\s,]+/).filter((k: string) => k.length > 2);
 
-    // Get configs for selected regions
+    // NORMALIZE region names from frontend to backend format
+    const normalizedRegionNames: string[] = regions.map((r: string) => normalizeRegionName(r));
+    console.log('📍 Normalized regions:', normalizedRegionNames);
+
+    // Get configs for normalized regions
     const selectedConfigs: { region: string, config: typeof REGION_CONFIGS[string] }[] = [];
-    for (const region of regions) {
-      for (const [key, config] of Object.entries(REGION_CONFIGS)) {
-        if (region.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(region.toLowerCase().split(' ')[0])) {
-          selectedConfigs.push({ region: key, config });
-          break;
+    for (const normalizedRegion of normalizedRegionNames) {
+      const config = REGION_CONFIGS[normalizedRegion];
+      if (config) {
+        selectedConfigs.push({ region: normalizedRegion, config });
+      } else {
+        // Fallback: try partial match
+        for (const [key, cfg] of Object.entries(REGION_CONFIGS)) {
+          if (normalizedRegion.toLowerCase().includes(key.toLowerCase()) || 
+              key.toLowerCase().includes(normalizedRegion.toLowerCase().split(' ')[0])) {
+            selectedConfigs.push({ region: key, config: cfg });
+            break;
+          }
         }
       }
     }
 
     if (selectedConfigs.length === 0) {
+      console.log('⚠️ No valid regions found, defaulting to SEE');
       selectedConfigs.push({ region: 'SEE', config: REGION_CONFIGS['SEE'] });
     }
+    
+    console.log('✅ Selected configs for regions:', selectedConfigs.map(c => c.region))
 
     const allOpportunities: VerifiedOpportunity[] = [];
     const searchStats = { 
@@ -415,10 +545,52 @@ serve(async (req) => {
       }
     }
 
-    // PHASE 8: Score all opportunities with AI
-    console.log('🎯 Phase 8: Calculating match scores...');
+    // PHASE 8: STRICT REGION FILTERING - Remove jobs from wrong regions
+    console.log('🌍 Phase 8: Applying strict region filtering...');
+    const regionFilteredOpportunities = allOpportunities.filter(opp => {
+      // AI-generated jobs are already region-specific
+      if (opp.data_quality === 'ai_generated') return true;
+      
+      // For scraped/verified jobs, check if location matches selected regions
+      return jobMatchesRegion(opp, selectedConfigs.map(c => c.region));
+    });
+    
+    const filteredOutCount = allOpportunities.length - regionFilteredOpportunities.length;
+    console.log(`🚫 Filtered out ${filteredOutCount} jobs from non-matching regions`);
+
+    // PHASE 9: Apply industry filter if specified
+    let industryFilteredOpps = regionFilteredOpportunities;
+    if (industryFilter && industryFilter !== 'all') {
+      const industryLower = industryFilter.toLowerCase();
+      industryFilteredOpps = regionFilteredOpportunities.filter(opp => {
+        const descLower = (opp.description || '').toLowerCase();
+        const titleLower = (opp.title || '').toLowerCase();
+        const companyLower = (opp.company || '').toLowerCase();
+        return descLower.includes(industryLower) || 
+               titleLower.includes(industryLower) || 
+               companyLower.includes(industryLower) ||
+               opp.industry?.toLowerCase().includes(industryLower);
+      });
+      console.log(`🏭 Industry filter "${industryFilter}": ${industryFilteredOpps.length} jobs`);
+    }
+
+    // PHASE 10: Apply experience level filter if specified
+    let experienceFilteredOpps = industryFilteredOpps;
+    if (experienceLevelFilter && experienceLevelFilter !== 'all') {
+      const levelConfig = EXPERIENCE_LEVELS.find(l => l.id === experienceLevelFilter);
+      if (levelConfig) {
+        experienceFilteredOpps = industryFilteredOpps.filter(opp => {
+          const titleLower = (opp.title || '').toLowerCase();
+          return levelConfig.keywords.some(kw => titleLower.includes(kw));
+        });
+        console.log(`📊 Experience filter "${experienceLevelFilter}": ${experienceFilteredOpps.length} jobs`);
+      }
+    }
+
+    // PHASE 11: Score all opportunities with AI
+    console.log('🎯 Phase 11: Calculating match scores...');
     const scoredOpportunities = await scoreOpportunities(
-      allOpportunities,
+      experienceFilteredOpps,
       targetRole,
       industries,
       bio,
@@ -444,7 +616,7 @@ serve(async (req) => {
 
     searchStats.totalReturned = uniqueOpportunities.length;
     
-    console.log(`📈 Total unique opportunities: ${uniqueOpportunities.length}`);
+    console.log(`📈 Total unique opportunities after all filters: ${uniqueOpportunities.length}`);
     console.log('📊 Stats:', searchStats);
 
     return new Response(
