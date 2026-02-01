@@ -173,18 +173,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           updated_at: new Date().toISOString()
         };
 
-        console.log('Updating profile in DB:', updateData);
-
         const { error } = await supabase
           .from('profiles')
           .upsert(updateData, { onConflict: 'id' });
 
-        if (error) {
-          console.error('Error updating profile:', error);
-          throw error;
-        }
-        
-        console.log('Profile saved successfully to database');
+        if (error) throw error;
       } catch (error) {
         console.error('Failed to save profile to database:', error);
         throw error;
