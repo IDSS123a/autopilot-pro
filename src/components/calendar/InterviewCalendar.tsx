@@ -132,7 +132,7 @@ export function InterviewCalendar() {
       setEvents((data as CalendarEvent[]) || []);
     } catch (error) {
       console.error('Error loading events:', error);
-      toast.error('Greška pri učitavanju događaja');
+      toast.error('Error loading events');
     } finally {
       setLoading(false);
     }
@@ -142,7 +142,7 @@ export function InterviewCalendar() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast.error('Morate biti prijavljeni');
+        toast.error('You must be logged in');
         return;
       }
 
@@ -173,21 +173,20 @@ export function InterviewCalendar() {
           .update(eventData)
           .eq('id', editingEvent.id);
         if (error) throw error;
-        toast.success('Događaj ažuriran');
+        toast.success('Event updated');
       } else {
         const { error } = await supabase
           .from('calendar_events')
           .insert(eventData);
         if (error) throw error;
-        toast.success('Događaj kreiran');
+        toast.success('Event created');
       }
 
       resetForm();
       setIsDialogOpen(false);
       loadEvents();
     } catch (error) {
-      console.error('Error saving event:', error);
-      toast.error('Greška pri spremanju događaja');
+      toast.error('Error saving event');
     }
   };
 
@@ -198,11 +197,10 @@ export function InterviewCalendar() {
         .delete()
         .eq('id', eventId);
       if (error) throw error;
-      toast.success('Događaj obrisan');
+      toast.success('Event deleted');
       loadEvents();
     } catch (error) {
-      console.error('Error deleting event:', error);
-      toast.error('Greška pri brisanju događaja');
+      toast.error('Error deleting event');
     }
   };
 
@@ -213,11 +211,10 @@ export function InterviewCalendar() {
         .update({ is_completed: !event.is_completed })
         .eq('id', event.id);
       if (error) throw error;
-      toast.success(event.is_completed ? 'Označeno kao nezavršeno' : 'Označeno kao završeno');
+      toast.success(event.is_completed ? 'Marked as incomplete' : 'Marked as complete');
       loadEvents();
     } catch (error) {
-      console.error('Error updating event:', error);
-      toast.error('Greška pri ažuriranju događaja');
+      toast.error('Error updating event');
     }
   };
 
@@ -231,8 +228,7 @@ export function InterviewCalendar() {
       if (error) throw error;
       toast.success('Email podsjetnik poslan!');
     } catch (error) {
-      console.error('Error sending reminder:', error);
-      toast.error('Greška pri slanju podsjetnika. Provjerite da li je RESEND_API_KEY konfigurisan.');
+      toast.error('Error sending reminder. Check if RESEND_API_KEY is configured.');
     } finally {
       setSendingReminder(null);
     }
@@ -294,21 +290,21 @@ export function InterviewCalendar() {
   }).slice(0, 5);
 
   const getEventLabel = (date: Date) => {
-    if (isToday(date)) return 'Danas';
-    if (isTomorrow(date)) return 'Sutra';
-    return format(date, 'dd.MM.yyyy');
+    if (isToday(date)) return 'Today';
+    if (isTomorrow(date)) return 'Tomorrow';
+    return format(date, 'MMM dd, yyyy');
   };
 
   return (
     <div className="space-y-6">
       {/* Reminders Alert */}
       {upcomingReminders.length > 0 && (
-        <Card className="border-amber-500/50 bg-amber-500/10">
+        <Card className="border-accent/50 bg-accent/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-amber-500 animate-pulse" />
+              <Bell className="h-5 w-5 text-accent animate-pulse" />
               <div>
-                <p className="font-medium text-amber-600">Nadolazeći podsjetnici</p>
+                <p className="font-medium text-accent">Upcoming Reminders</p>
                 {upcomingReminders.map(event => (
                   <p key={event.id} className="text-sm text-muted-foreground">
                     {event.title} - {format(new Date(event.event_date), 'HH:mm')}
@@ -326,43 +322,43 @@ export function InterviewCalendar() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Danas</p>
+                <p className="text-sm text-muted-foreground">Today</p>
                 <p className="text-2xl font-bold">{todayEvents.length}</p>
               </div>
-              <CalendarCheck className="h-8 w-8 text-blue-500" />
+              <CalendarCheck className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
+        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Sutra</p>
+                <p className="text-sm text-muted-foreground">Tomorrow</p>
                 <p className="text-2xl font-bold">{tomorrowEvents.length}</p>
               </div>
-              <Clock className="h-8 w-8 text-amber-500" />
+              <Clock className="h-8 w-8 text-accent" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Intervjui</p>
+                <p className="text-sm text-muted-foreground">Interviews</p>
                 <p className="text-2xl font-bold">{events.filter(e => e.event_type === 'interview' && !e.is_completed).length}</p>
               </div>
-              <Video className="h-8 w-8 text-emerald-500" />
+              <Video className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Follow-ups</p>
                 <p className="text-2xl font-bold">{events.filter(e => e.event_type === 'followup' && !e.is_completed).length}</p>
               </div>
-              <Bell className="h-8 w-8 text-purple-500" />
+              <Bell className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -378,7 +374,7 @@ export function InterviewCalendar() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <CalendarDays className="h-5 w-5" />
-                Kalendar
+                Calendar
               </CardTitle>
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open);
@@ -393,13 +389,13 @@ export function InterviewCalendar() {
                     }));
                   }}>
                     <Plus className="h-4 w-4 mr-1" />
-                    Novi
+                    New
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
-                      {editingEvent ? 'Uredi događaj' : 'Novi događaj'}
+                      {editingEvent ? 'Edit Event' : 'New Event'}
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">

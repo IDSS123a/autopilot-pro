@@ -256,7 +256,7 @@ const OpportunityScanner: React.FC = () => {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('🔔 New opportunity detected via realtime:', payload.new);
+          // New opportunity detected via realtime
           const newOpp = payload.new as any;
           
           // Parse and add to jobs list
@@ -312,9 +312,7 @@ const OpportunityScanner: React.FC = () => {
           );
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Realtime subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

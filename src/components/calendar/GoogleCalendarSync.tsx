@@ -74,7 +74,7 @@ export function GoogleCalendarSync() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Morate biti prijavljeni');
+        toast.error('You must be logged in');
         return;
       }
 
@@ -96,7 +96,7 @@ export function GoogleCalendarSync() {
       }
     } catch (error: any) {
       console.error('Error connecting:', error);
-      toast.error('Greška pri povezivanju sa Google Calendar');
+      toast.error('Error connecting to Google Calendar');
     } finally {
       setConnecting(false);
     }
@@ -118,7 +118,7 @@ export function GoogleCalendarSync() {
       if (error) throw error;
 
       if (data?.success) {
-        toast.success('Google Calendar uspješno povezan!');
+        toast.success('Google Calendar connected successfully!');
         // Clear URL params
         window.history.replaceState({}, document.title, window.location.pathname);
         checkConnection();
@@ -127,7 +127,7 @@ export function GoogleCalendarSync() {
       }
     } catch (error: any) {
       console.error('Error in OAuth callback:', error);
-      toast.error('Greška pri autorizaciji');
+      toast.error('Authorization error');
     } finally {
       setConnecting(false);
     }
@@ -142,10 +142,10 @@ export function GoogleCalendarSync() {
       if (error) throw error;
 
       setConnection(null);
-      toast.success('Google Calendar isključen');
+      toast.success('Google Calendar disconnected');
     } catch (error) {
       console.error('Error disconnecting:', error);
-      toast.error('Greška pri isključivanju');
+      toast.error('Error disconnecting');
     }
   };
 
@@ -165,21 +165,21 @@ export function GoogleCalendarSync() {
         let message = '';
         
         if (syncDirection === 'sync_all' && results.to_google && results.from_google) {
-          message = `Sinkronizacija završena! Poslano: ${results.to_google.created + results.to_google.updated}, Uvezeno: ${results.from_google.imported}`;
+          message = `Sync complete! Sent: ${results.to_google.created + results.to_google.updated}, Imported: ${results.from_google.imported}`;
         } else if (results.created !== undefined) {
-          message = `Kreirano: ${results.created}, Ažurirano: ${results.updated}`;
+          message = `Created: ${results.created}, Updated: ${results.updated}`;
         } else if (results.imported !== undefined) {
-          message = `Uvezeno: ${results.imported}, Preskočeno: ${results.skipped}`;
+          message = `Imported: ${results.imported}, Skipped: ${results.skipped}`;
         }
         
-        toast.success(message || 'Sinkronizacija završena!');
+        toast.success(message || 'Sync complete!');
         checkConnection();
       } else if (data?.error) {
         toast.error(data.error);
       }
     } catch (error: any) {
       console.error('Error syncing:', error);
-      toast.error('Greška pri sinkronizaciji');
+      toast.error('Error syncing');
     } finally {
       setSyncing(false);
     }
@@ -197,10 +197,10 @@ export function GoogleCalendarSync() {
       if (error) throw error;
 
       setConnection({ ...connection, sync_enabled: !connection.sync_enabled });
-      toast.success(connection.sync_enabled ? 'Automatska sinkronizacija isključena' : 'Automatska sinkronizacija uključena');
+      toast.success(connection.sync_enabled ? 'Auto sync disabled' : 'Auto sync enabled');
     } catch (error) {
       console.error('Error toggling sync:', error);
-      toast.error('Greška pri promjeni postavki');
+      toast.error('Error changing settings');
     }
   };
 
@@ -225,19 +225,19 @@ export function GoogleCalendarSync() {
             <div>
               <CardTitle className="text-lg">Google Calendar</CardTitle>
               <CardDescription>
-                Sinkronizirajte intervjue i događaje
+                Sync your interviews and events
               </CardDescription>
             </div>
           </div>
           {connection ? (
             <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
               <Check className="h-3 w-3 mr-1" />
-              Povezano
+              Connected
             </Badge>
           ) : (
             <Badge variant="outline" className="bg-muted text-muted-foreground">
               <AlertCircle className="h-3 w-3 mr-1" />
-              Nije povezano
+              Not connected
             </Badge>
           )}
         </div>
@@ -253,18 +253,18 @@ export function GoogleCalendarSync() {
                   onCheckedChange={toggleSyncEnabled}
                 />
                 <Label htmlFor="sync-enabled" className="text-sm">
-                  Automatska sinkronizacija
+                  Auto sync
                 </Label>
               </div>
               {connection.last_sync_at && (
                 <span className="text-xs text-muted-foreground">
-                  Zadnja: {format(new Date(connection.last_sync_at), 'dd.MM.yyyy HH:mm')}
+                  Last: {format(new Date(connection.last_sync_at), 'MMM dd, yyyy HH:mm')}
                 </span>
               )}
             </div>
 
             <div className="flex flex-col gap-3">
-              <Label className="text-sm text-muted-foreground">Smjer sinkronizacije</Label>
+              <Label className="text-sm text-muted-foreground">Sync Direction</Label>
               <div className="flex gap-2">
                 <Button
                   variant={syncDirection === 'sync_all' ? 'default' : 'outline'}
@@ -273,7 +273,7 @@ export function GoogleCalendarSync() {
                   className="flex-1"
                 >
                   <ArrowUpDown className="h-4 w-4 mr-1" />
-                  Dvosmjerno
+                  Bidirectional
                 </Button>
                 <Button
                   variant={syncDirection === 'to_google' ? 'default' : 'outline'}
@@ -282,7 +282,7 @@ export function GoogleCalendarSync() {
                   className="flex-1"
                 >
                   <ArrowUp className="h-4 w-4 mr-1" />
-                  Na Google
+                  To Google
                 </Button>
                 <Button
                   variant={syncDirection === 'from_google' ? 'default' : 'outline'}
@@ -291,7 +291,7 @@ export function GoogleCalendarSync() {
                   className="flex-1"
                 >
                   <ArrowDown className="h-4 w-4 mr-1" />
-                  Sa Google
+                  From Google
                 </Button>
               </div>
             </div>
@@ -305,12 +305,12 @@ export function GoogleCalendarSync() {
                 {syncing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sinkronizacija...
+                    Syncing...
                   </>
                 ) : (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Sinkroniziraj sada
+                    Sync Now
                   </>
                 )}
               </Button>
@@ -320,20 +320,20 @@ export function GoogleCalendarSync() {
                 className="text-destructive hover:text-destructive"
               >
                 <Unlink className="h-4 w-4 mr-2" />
-                Isključi
+                Disconnect
               </Button>
             </div>
           </>
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Povežite svoj Google Calendar za automatsku sinkronizaciju intervjua, 
-              follow-up podsjetnika i drugih događaja.
+              Connect your Google Calendar for automatic sync of interviews, 
+              follow-up reminders, and other events.
             </p>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>✓ Dvosmjerna sinkronizacija događaja</p>
-              <p>✓ Automatski podsjetnici u Google Calendar</p>
-              <p>✓ Uvoz postojećih događaja</p>
+              <p>✓ Bidirectional event sync</p>
+              <p>✓ Automatic reminders in Google Calendar</p>
+              <p>✓ Import existing events</p>
             </div>
             <Button 
               onClick={handleConnect} 
@@ -343,12 +343,12 @@ export function GoogleCalendarSync() {
               {connecting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Povezivanje...
+                  Connecting...
                 </>
               ) : (
                 <>
                   <Link2 className="h-4 w-4 mr-2" />
-                  Poveži Google Calendar
+                  Connect Google Calendar
                 </>
               )}
             </Button>
