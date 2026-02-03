@@ -153,11 +153,33 @@ function normalizeRegionName(regionInput: string): string {
   return REGION_NAME_MAP[lower] || regionInput;
 }
 
-// Helper function to strictly filter jobs by region location
+// Helper function to filter jobs by region location - RELAXED for remote jobs
 function jobMatchesRegion(job: VerifiedOpportunity, normalizedRegions: string[]): boolean {
   const locationLower = (job.location || '').toLowerCase();
   const descLower = (job.description || '').toLowerCase();
   const companyLower = (job.company || '').toLowerCase();
+  const titleLower = (job.title || '').toLowerCase();
+  
+  // ALWAYS include remote/worldwide jobs - they are available for all regions
+  const remoteKeywords = ['remote', 'worldwide', 'global', 'anywhere', 'work from home', 'wfh', 'fully remote', 'distributed'];
+  const isRemote = remoteKeywords.some(kw => 
+    locationLower.includes(kw) || descLower.includes(kw) || titleLower.includes(kw)
+  );
+  if (isRemote) {
+    console.log(`  ✅ Including remote job: ${job.title} at ${job.company}`);
+    return true;
+  }
+  
+  // Include jobs with generic "Europe" location for European regions
+  const europeanRegions = ['SEE', 'DACH', 'Nordics', 'UK', 'Eastern Europe', 'Benelux', 'France', 'Italy', 'Iberia', 'Baltics'];
+  const isEuropeanSearch = normalizedRegions.some(r => europeanRegions.includes(r));
+  if (isEuropeanSearch) {
+    const europeKeywords = ['europe', 'european', 'eu', 'emea'];
+    const isEuropeWide = europeKeywords.some(kw => locationLower.includes(kw));
+    if (isEuropeWide) {
+      return true;
+    }
+  }
   
   for (const region of normalizedRegions) {
     const keywords = REGION_LOCATION_KEYWORDS[region] || [];
@@ -466,7 +488,7 @@ serve(async (req) => {
       const arbeitnowJobs = await fetchFromArbeitnow(
         selectedConfigs,
         roleKeywords,
-        Math.ceil(maxResults / 6)
+        Math.ceil(maxResults / 3) // Increased limit
       );
       allOpportunities.push(...arbeitnowJobs);
       searchStats.arbeitnowResults = arbeitnowJobs.length;
@@ -481,7 +503,7 @@ serve(async (req) => {
     try {
       const remotiveJobs = await fetchFromRemotive(
         roleKeywords,
-        Math.ceil(maxResults / 8)
+        Math.ceil(maxResults / 3) // Increased limit
       );
       allOpportunities.push(...remotiveJobs);
       searchStats.remotiveResults = remotiveJobs.length;
@@ -524,10 +546,17 @@ serve(async (req) => {
       }
     }
 
-    // PHASE 7: AI-generated opportunities to fill gaps (if needed)
+    // PHASE 7: AI-generated opportunities to fill gaps
+    // For regions with limited API coverage (like SEE), generate more AI opportunities
     const realJobsCount = allOpportunities.length;
-    if (realJobsCount < maxResults / 3) {
+    const hasLimitedAPICoverage = selectedConfigs.some(c => 
+      ['SEE', 'Eastern Europe', 'Baltics', 'Africa', 'Latin America', 'Middle East'].includes(c.region)
+    );
+    const aiThreshold = hasLimitedAPICoverage ? maxResults / 2 : maxResults / 3;
+    
+    if (realJobsCount < aiThreshold) {
       console.log('🤖 Phase 7: Generating AI market analysis opportunities...');
+      console.log(`  Real jobs: ${realJobsCount}, threshold: ${aiThreshold}, generating AI opportunities...`);
       try {
         const aiOpportunities = await generateAIOpportunities(
           selectedConfigs,
@@ -535,7 +564,7 @@ serve(async (req) => {
           industries,
           bio,
           LOVABLE_API_KEY,
-          Math.min(100, maxResults - realJobsCount)
+          Math.min(150, maxResults - realJobsCount) // Generate more AI opportunities
         );
         allOpportunities.push(...aiOpportunities);
         searchStats.aiGenerated = aiOpportunities.length;
@@ -853,30 +882,39 @@ async function fetchFromArbeitnow(
     const data = await response.json();
     
     if (data.data && Array.isArray(data.data)) {
-      // Filter for executive positions
+      // Filter for executive/senior positions (broader filter)
       const executiveJobs = data.data.filter((job: any) => {
         const title = job.title?.toLowerCase() || '';
-        return EXECUTIVE_TITLES.some(t => title.includes(t.toLowerCase()));
+        return EXECUTIVE_TITLES.some(t => title.includes(t.toLowerCase())) ||
+               title.includes('senior') || title.includes('lead') || 
+               title.includes('head') || title.includes('manager');
       });
       
       // Get region locations for filtering
       const regionLocations = configs.flatMap(c => c.config.locations.map(l => l.toLowerCase()));
       
-      for (const job of executiveJobs.slice(0, maxResults)) {
-        // Check if job location matches selected regions
+      for (const job of executiveJobs.slice(0, maxResults * 2)) { // Take more, filter later
         const jobLocation = job.location?.toLowerCase() || '';
+        
+        // Check if job location matches selected regions
         const matchesRegion = regionLocations.some(loc => 
           jobLocation.includes(loc) || loc.includes(jobLocation.split(',')[0])
         );
         
-        // Include if matches region OR if it's remote
-        if (!matchesRegion && !job.remote) continue;
+        // Check if it's remote
+        const isRemote = job.remote || jobLocation.includes('remote') || jobLocation.includes('worldwide');
+        
+        // Check if it's European (for European region searches)
+        const isEuropean = jobLocation.includes('europe') || jobLocation.includes('eu') || jobLocation.includes('emea');
+        
+        // Include if matches region OR if it's remote OR if it's European
+        if (!matchesRegion && !isRemote && !isEuropean) continue;
         
         opportunities.push({
           id: `arbeitnow-${job.slug || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           title: job.title || 'Executive Position',
           company: job.company_name || 'Company',
-          location: job.location || 'Europe',
+          location: job.remote ? `${job.location || 'Europe'} (Remote)` : (job.location || 'Europe'),
           salary_range: 'Competitive',
           status: 'New',
           source: 'Arbeitnow',
@@ -907,7 +945,8 @@ async function fetchFromRemotive(
   const opportunities: VerifiedOpportunity[] = [];
   
   try {
-    const response = await fetch('https://remotive.com/api/remote-jobs?limit=100');
+    // Fetch more jobs from Remotive (they have a limit of 100+ jobs)
+    const response = await fetch('https://remotive.com/api/remote-jobs?limit=500');
     
     if (!response.ok) {
       console.log(`Remotive: ${response.status}`);
