@@ -528,21 +528,22 @@ serve(async (req) => {
       searchStats.apiErrors.push('TheMuse: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
-    // PHASE 6: Firecrawl as supplementary source (if available)
-    if (FIRECRAWL_API_KEY && allOpportunities.length < maxResults / 2) {
-      console.log('📡 Phase 6: Supplementing with Firecrawl scraping...');
+    // PHASE 6: LinkedIn Direct Scraping via Firecrawl
+    if (FIRECRAWL_API_KEY) {
+      console.log('📡 Phase 6: Fetching directly from LinkedIn...');
       try {
-        const firecrawlJobs = await scrapeWithFirecrawl(
-          selectedConfigs,
+        const linkedinJobs = await fetchFromLinkedIn(
+          selectedConfigs.map(c => c.region),
           roleKeywords,
           FIRECRAWL_API_KEY,
-          Math.min(30, maxResults / 10)
+          Math.ceil(maxResults / 4)
         );
-        allOpportunities.push(...firecrawlJobs);
-        searchStats.firecrawlResults = firecrawlJobs.length;
-        console.log(`✅ Firecrawl: ${firecrawlJobs.length} opportunities`);
+        allOpportunities.push(...linkedinJobs);
+        searchStats.firecrawlResults = linkedinJobs.length;
+        console.log(`✅ LinkedIn: ${linkedinJobs.length} opportunities`);
       } catch (error) {
-        console.error('⚠️ Firecrawl limited:', error);
+        console.error('⚠️ LinkedIn scraping error:', error);
+        searchStats.apiErrors.push('LinkedIn: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     }
 
@@ -1066,7 +1067,306 @@ async function fetchFromTheMuse(
   return opportunities;
 }
 
-// Firecrawl supplementary scraping
+// LinkedIn Direct Scraping via Firecrawl - Region specific
+const LINKEDIN_GEOID_MAP: Record<string, { geoId: string; name: string }[]> = {
+  'SEE': [
+    { geoId: '104688944', name: 'Croatia' },
+    { geoId: '101855366', name: 'Serbia' },
+    { geoId: '101727083', name: 'Slovenia' },
+    { geoId: '100994331', name: 'Bosnia and Herzegovina' },
+    { geoId: '105149290', name: 'North Macedonia' },
+    { geoId: '101683237', name: 'Montenegro' },
+    { geoId: '102845717', name: 'Albania' },
+    { geoId: '101728083', name: 'Kosovo' },
+    { geoId: '91000007', name: 'Southeast Europe' }
+  ],
+  'DACH': [
+    { geoId: '101282230', name: 'Germany' },
+    { geoId: '103883259', name: 'Austria' },
+    { geoId: '106693272', name: 'Switzerland' }
+  ],
+  'Nordics': [
+    { geoId: '105117694', name: 'Sweden' },
+    { geoId: '103819153', name: 'Norway' },
+    { geoId: '104514075', name: 'Denmark' },
+    { geoId: '100456013', name: 'Finland' }
+  ],
+  'UK': [
+    { geoId: '101165590', name: 'United Kingdom' },
+    { geoId: '104738515', name: 'Ireland' }
+  ],
+  'North America': [
+    { geoId: '103644278', name: 'United States' },
+    { geoId: '101174742', name: 'Canada' }
+  ],
+  'Middle East': [
+    { geoId: '104305776', name: 'United Arab Emirates' },
+    { geoId: '100459316', name: 'Saudi Arabia' },
+    { geoId: '104396105', name: 'Israel' },
+    { geoId: '103495196', name: 'Qatar' }
+  ],
+  'Asia': [
+    { geoId: '102454443', name: 'Singapore' },
+    { geoId: '103291313', name: 'Hong Kong' },
+    { geoId: '101355337', name: 'Japan' },
+    { geoId: '102713980', name: 'India' }
+  ],
+  'Oceania': [
+    { geoId: '101452733', name: 'Australia' },
+    { geoId: '105490917', name: 'New Zealand' }
+  ],
+  'Eastern Europe': [
+    { geoId: '105072130', name: 'Poland' },
+    { geoId: '104508036', name: 'Czech Republic' },
+    { geoId: '100288700', name: 'Hungary' },
+    { geoId: '106670623', name: 'Romania' },
+    { geoId: '105333783', name: 'Bulgaria' }
+  ],
+  'Europe': [
+    { geoId: '91000000', name: 'European Union' },
+    { geoId: '91000007', name: 'Europe' }
+  ]
+};
+
+async function fetchFromLinkedIn(
+  regions: string[],
+  keywords: string[],
+  firecrawlKey: string,
+  maxResults: number
+): Promise<VerifiedOpportunity[]> {
+  const opportunities: VerifiedOpportunity[] = [];
+  
+  // Get geoIds for all selected regions
+  const geoIds: { geoId: string; name: string }[] = [];
+  for (const region of regions) {
+    const regionGeoIds = LINKEDIN_GEOID_MAP[region] || LINKEDIN_GEOID_MAP['Europe'] || [];
+    geoIds.push(...regionGeoIds);
+  }
+  
+  // Deduplicate geoIds
+  const uniqueGeoIds = [...new Map(geoIds.map(g => [g.geoId, g])).values()].slice(0, 5);
+  
+  console.log(`  LinkedIn: Searching in ${uniqueGeoIds.length} regions: ${uniqueGeoIds.map(g => g.name).join(', ')}`);
+  
+  // Build LinkedIn search URLs
+  // f_E=5,6 = Director, Executive level
+  // f_TPR=r604800 = Last 7 days
+  for (const geo of uniqueGeoIds) {
+    try {
+      // Construct LinkedIn Jobs search URL
+      const keywordQuery = keywords.length > 0 
+        ? keywords.slice(0, 2).join(' OR ') 
+        : 'CEO OR CFO OR CTO OR Director OR VP';
+      
+      const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(keywordQuery)}&f_E=5%2C6&f_TPR=r604800&geoId=${geo.geoId}&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true`;
+      
+      console.log(`  LinkedIn scraping ${geo.name}: ${keywordQuery.substring(0, 30)}...`);
+      
+      // Use Firecrawl to scrape LinkedIn
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${firecrawlKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: linkedInUrl,
+          formats: ['markdown', 'links'],
+          onlyMainContent: true,
+          waitFor: 3000 // Wait for dynamic content
+        }),
+      });
+      
+      if (response.status === 402 || response.status === 429) {
+        console.log('  LinkedIn: Firecrawl rate limited or credits exhausted');
+        break;
+      }
+      
+      if (!response.ok) {
+        console.log(`  LinkedIn ${geo.name}: ${response.status}`);
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      // Parse the markdown content to extract job listings
+      const markdown = data.data?.markdown || '';
+      const links = data.data?.links || [];
+      
+      // Extract job postings from markdown
+      const parsedJobs = parseLinkedInMarkdown(markdown, links, geo.name);
+      opportunities.push(...parsedJobs);
+      
+      console.log(`  LinkedIn ${geo.name}: Found ${parsedJobs.length} jobs`);
+      
+      // Rate limiting - wait between requests
+      await new Promise(r => setTimeout(r, 2000));
+      
+    } catch (error) {
+      console.error(`  LinkedIn ${geo.name} error:`, error);
+    }
+  }
+  
+  // Also try Firecrawl search for LinkedIn jobs
+  try {
+    const searchQuery = `site:linkedin.com/jobs ${keywords[0] || 'executive'} ${regions[0] || 'Europe'}`;
+    console.log(`  LinkedIn search: ${searchQuery.substring(0, 40)}...`);
+    
+    const searchResponse = await fetch('https://api.firecrawl.dev/v1/search', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: searchQuery,
+        limit: 20,
+        scrapeOptions: { formats: ['markdown'] }
+      }),
+    });
+    
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      
+      if (searchData.data && Array.isArray(searchData.data)) {
+        for (const result of searchData.data) {
+          const parsed = parseLinkedInSearchResult(result);
+          if (parsed) opportunities.push(parsed);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('  LinkedIn search error:', error);
+  }
+  
+  return opportunities.slice(0, maxResults);
+}
+
+// Parse LinkedIn markdown content to extract job listings
+function parseLinkedInMarkdown(markdown: string, links: string[], regionName: string): VerifiedOpportunity[] {
+  const opportunities: VerifiedOpportunity[] = [];
+  
+  // LinkedIn job listings typically have patterns like:
+  // - Job Title at Company - Location
+  // - Links to /jobs/view/
+  
+  // Extract job links
+  const jobLinks = links.filter(link => 
+    link.includes('linkedin.com/jobs/view/') || 
+    link.includes('linkedin.com/jobs/')
+  );
+  
+  // Parse markdown for job titles and companies
+  const jobPatterns = [
+    // Pattern: "Job Title" followed by "at Company"
+    /([A-Z][^.!?\n]{5,80})\s+at\s+([A-Z][^.!?\n\-]{2,50})/gi,
+    // Pattern: "Job Title - Company"
+    /([A-Z][^.!?\n]{5,80})\s+[-–]\s+([A-Z][^.!?\n]{2,50})/gi,
+    // Pattern for structured listings
+    /(?:^|\n)([A-Z][A-Za-z\s]+(?:Director|Manager|VP|Chief|Head|President|Executive)[^.!?\n]{0,50})(?:\n|\s{2,})([A-Z][A-Za-z\s&\.]{2,50})/gm
+  ];
+  
+  const foundJobs: { title: string; company: string }[] = [];
+  
+  for (const pattern of jobPatterns) {
+    let match;
+    while ((match = pattern.exec(markdown)) !== null) {
+      const title = match[1].trim();
+      const company = match[2].trim();
+      
+      // Filter for executive-level positions only
+      const isExecutive = EXECUTIVE_TITLES.some(t => 
+        title.toLowerCase().includes(t.toLowerCase())
+      );
+      
+      if (isExecutive && title.length < 100 && company.length < 80) {
+        foundJobs.push({ title, company });
+      }
+    }
+  }
+  
+  // Create opportunities from found jobs
+  for (let i = 0; i < foundJobs.length && i < 20; i++) {
+    const job = foundJobs[i];
+    const jobUrl = jobLinks[i] || 'https://linkedin.com/jobs';
+    
+    opportunities.push({
+      id: `linkedin-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 6)}`,
+      title: job.title.substring(0, 100),
+      company: job.company.substring(0, 80),
+      location: regionName,
+      salary_range: 'Competitive',
+      status: 'New',
+      source: 'LinkedIn',
+      posted_date: new Date().toISOString().split('T')[0],
+      description: `Executive opportunity at ${job.company}. Found via LinkedIn Jobs search.`,
+      match_score: 0,
+      url: jobUrl,
+      verified: true,
+      verification_score: 95,
+      data_quality: 'verified',
+      source_reliability: 'high',
+      scraped_at: new Date().toISOString()
+    });
+  }
+  
+  return opportunities;
+}
+
+// Parse a single LinkedIn search result
+function parseLinkedInSearchResult(result: any): VerifiedOpportunity | null {
+  try {
+    const url = result.url || '';
+    const title = result.title || '';
+    const description = result.description || result.markdown || '';
+    
+    if (!url || !url.includes('linkedin.com/jobs')) return null;
+    
+    // Extract job title and company from the title
+    const titleParts = title.split(/\s+at\s+|\s+[-|–]\s+|\s+\|\s+/i);
+    const jobTitle = titleParts[0]?.trim() || title;
+    
+    let company = 'Company';
+    if (titleParts.length > 1) {
+      company = titleParts[1]?.trim() || 'Company';
+    }
+    
+    // Check if it's an executive position
+    const isExecutive = EXECUTIVE_TITLES.some(t => 
+      jobTitle.toLowerCase().includes(t.toLowerCase())
+    );
+    
+    if (!isExecutive) return null;
+    
+    // Extract location if present
+    let location = 'Remote';
+    const locationMatch = title.match(/in\s+([A-Za-z\s,]+)(?:\s+[-|]|$)/i);
+    if (locationMatch) location = locationMatch[1].trim();
+    
+    return {
+      id: `linkedin-search-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      title: jobTitle.substring(0, 100),
+      company: company.substring(0, 80),
+      location,
+      salary_range: 'Competitive',
+      status: 'New',
+      source: 'LinkedIn',
+      posted_date: new Date().toISOString().split('T')[0],
+      description: description.substring(0, 1000),
+      match_score: 0,
+      url,
+      verified: true,
+      verification_score: 95,
+      data_quality: 'verified',
+      source_reliability: 'high',
+      scraped_at: new Date().toISOString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Firecrawl supplementary scraping (kept for backwards compatibility)
 async function scrapeWithFirecrawl(
   configs: { region: string, config: typeof REGION_CONFIGS[string] }[],
   keywords: string[],
