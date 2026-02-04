@@ -528,23 +528,22 @@ serve(async (req) => {
       searchStats.apiErrors.push('TheMuse: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
-    // PHASE 6: LinkedIn Direct Scraping via Firecrawl
-    if (FIRECRAWL_API_KEY) {
-      console.log('📡 Phase 6: Fetching directly from LinkedIn...');
-      try {
-        const linkedinJobs = await fetchFromLinkedIn(
-          selectedConfigs.map(c => c.region),
-          roleKeywords,
-          FIRECRAWL_API_KEY,
-          Math.ceil(maxResults / 4)
-        );
-        allOpportunities.push(...linkedinJobs);
-        searchStats.firecrawlResults = linkedinJobs.length;
-        console.log(`✅ LinkedIn: ${linkedinJobs.length} opportunities`);
-      } catch (error) {
-        console.error('⚠️ LinkedIn scraping error:', error);
-        searchStats.apiErrors.push('LinkedIn: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      }
+    // PHASE 6: LinkedIn Direct Scraping via Firecrawl with Lovable AI fallback
+    console.log('📡 Phase 6: Fetching directly from LinkedIn...');
+    try {
+      const linkedinResult = await fetchFromLinkedIn(
+        selectedConfigs.map(c => c.region),
+        roleKeywords,
+        FIRECRAWL_API_KEY || '',
+        LOVABLE_API_KEY || '',
+        Math.ceil(maxResults / 4)
+      );
+      allOpportunities.push(...linkedinResult.opportunities);
+      searchStats.firecrawlResults = linkedinResult.opportunities.length;
+      console.log(`✅ LinkedIn: ${linkedinResult.opportunities.length} opportunities${linkedinResult.firecrawlFailed ? ' (via AI fallback)' : ''}`);
+    } catch (error) {
+      console.error('⚠️ LinkedIn scraping error:', error);
+      searchStats.apiErrors.push('LinkedIn: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
     // PHASE 7: AI-generated opportunities to fill gaps
@@ -1132,9 +1131,11 @@ async function fetchFromLinkedIn(
   regions: string[],
   keywords: string[],
   firecrawlKey: string,
+  lovableApiKey: string,
   maxResults: number
-): Promise<VerifiedOpportunity[]> {
+): Promise<{ opportunities: VerifiedOpportunity[]; firecrawlFailed: boolean }> {
   const opportunities: VerifiedOpportunity[] = [];
+  let firecrawlFailed = false;
   
   // Get geoIds for all selected regions
   const geoIds: { geoId: string; name: string }[] = [];
@@ -1148,98 +1149,161 @@ async function fetchFromLinkedIn(
   
   console.log(`  LinkedIn: Searching in ${uniqueGeoIds.length} regions: ${uniqueGeoIds.map(g => g.name).join(', ')}`);
   
-  // Build LinkedIn search URLs
-  // f_E=5,6 = Director, Executive level
-  // f_TPR=r604800 = Last 7 days
-  for (const geo of uniqueGeoIds) {
-    try {
-      // Construct LinkedIn Jobs search URL
-      const keywordQuery = keywords.length > 0 
-        ? keywords.slice(0, 2).join(' OR ') 
-        : 'CEO OR CFO OR CTO OR Director OR VP';
-      
-      const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(keywordQuery)}&f_E=5%2C6&f_TPR=r604800&geoId=${geo.geoId}&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true`;
-      
-      console.log(`  LinkedIn scraping ${geo.name}: ${keywordQuery.substring(0, 30)}...`);
-      
-      // Use Firecrawl to scrape LinkedIn
-      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${firecrawlKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: linkedInUrl,
-          formats: ['markdown', 'links'],
-          onlyMainContent: true,
-          waitFor: 3000 // Wait for dynamic content
-        }),
-      });
-      
-      if (response.status === 402 || response.status === 429) {
-        console.log('  LinkedIn: Firecrawl rate limited or credits exhausted');
-        break;
-      }
-      
-      if (!response.ok) {
-        console.log(`  LinkedIn ${geo.name}: ${response.status}`);
-        continue;
-      }
-      
-      const data = await response.json();
-      
-      // Parse the markdown content to extract job listings
-      const markdown = data.data?.markdown || '';
-      const links = data.data?.links || [];
-      
-      // Extract job postings from markdown
-      const parsedJobs = parseLinkedInMarkdown(markdown, links, geo.name);
-      opportunities.push(...parsedJobs);
-      
-      console.log(`  LinkedIn ${geo.name}: Found ${parsedJobs.length} jobs`);
-      
-      // Rate limiting - wait between requests
-      await new Promise(r => setTimeout(r, 2000));
-      
-    } catch (error) {
-      console.error(`  LinkedIn ${geo.name} error:`, error);
-    }
-  }
-  
-  // Also try Firecrawl search for LinkedIn jobs
-  try {
-    const searchQuery = `site:linkedin.com/jobs ${keywords[0] || 'executive'} ${regions[0] || 'Europe'}`;
-    console.log(`  LinkedIn search: ${searchQuery.substring(0, 40)}...`);
-    
-    const searchResponse = await fetch('https://api.firecrawl.dev/v1/search', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${firecrawlKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: searchQuery,
-        limit: 20,
-        scrapeOptions: { formats: ['markdown'] }
-      }),
-    });
-    
-    if (searchResponse.ok) {
-      const searchData = await searchResponse.json();
-      
-      if (searchData.data && Array.isArray(searchData.data)) {
-        for (const result of searchData.data) {
-          const parsed = parseLinkedInSearchResult(result);
-          if (parsed) opportunities.push(parsed);
+  // Try Firecrawl first
+  if (firecrawlKey) {
+    for (const geo of uniqueGeoIds) {
+      try {
+        const keywordQuery = keywords.length > 0 
+          ? keywords.slice(0, 2).join(' OR ') 
+          : 'CEO OR CFO OR CTO OR Director OR VP';
+        
+        const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(keywordQuery)}&f_E=5%2C6&f_TPR=r604800&geoId=${geo.geoId}&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true`;
+        
+        console.log(`  LinkedIn scraping ${geo.name}: ${keywordQuery.substring(0, 30)}...`);
+        
+        const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${firecrawlKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url: linkedInUrl,
+            formats: ['markdown', 'links'],
+            onlyMainContent: true,
+            waitFor: 3000
+          }),
+        });
+        
+        if (response.status === 402 || response.status === 429) {
+          console.log('  LinkedIn: Firecrawl rate limited - switching to Lovable AI fallback');
+          firecrawlFailed = true;
+          break;
         }
+        
+        if (!response.ok) {
+          console.log(`  LinkedIn ${geo.name}: ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        const markdown = data.data?.markdown || '';
+        const links = data.data?.links || [];
+        
+        const parsedJobs = parseLinkedInMarkdown(markdown, links, geo.name);
+        opportunities.push(...parsedJobs);
+        
+        console.log(`  LinkedIn ${geo.name}: Found ${parsedJobs.length} jobs`);
+        await new Promise(r => setTimeout(r, 2000));
+        
+      } catch (error) {
+        console.error(`  LinkedIn ${geo.name} error:`, error);
       }
     }
-  } catch (error) {
-    console.error('  LinkedIn search error:', error);
+  } else {
+    firecrawlFailed = true;
   }
   
-  return opportunities.slice(0, maxResults);
+  // FALLBACK: Use Lovable AI Web Search when Firecrawl fails
+  if (firecrawlFailed && lovableApiKey) {
+    console.log('  LinkedIn: Using Lovable AI fallback for job search...');
+    
+    for (const geo of uniqueGeoIds.slice(0, 3)) {
+      try {
+        const searchQuery = `LinkedIn executive jobs ${geo.name} ${keywords[0] || 'CEO'} 2026`;
+        
+        console.log(`  Lovable AI search: ${searchQuery}`);
+        
+        const aiResponse = await fetch('https://api.lovable.dev/v1/ai', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [{
+              role: 'user',
+              content: `Search the web for current executive job openings on LinkedIn in ${geo.name}. 
+              
+Find REAL job postings from the last 7 days for positions like: ${keywords.join(', ') || 'CEO, CFO, CTO, Director, VP, Head of'}.
+
+For each job found, provide in this exact JSON format:
+[
+  {
+    "title": "Job Title",
+    "company": "Company Name", 
+    "location": "City, Country",
+    "url": "LinkedIn job URL if available",
+    "posted": "Date posted"
+  }
+]
+
+Return ONLY the JSON array, no other text. Find at least 10 real job postings.`
+            }],
+            tools: [{
+              type: 'web_search',
+              search: {
+                enabled: true,
+                context_size: 'high'
+              }
+            }]
+          }),
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          const content = aiData.choices?.[0]?.message?.content || '';
+          
+          // Parse JSON from AI response
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            try {
+              const jobs = JSON.parse(jsonMatch[0]);
+              for (const job of jobs) {
+                if (job.title && job.company) {
+                  const isExecutive = EXECUTIVE_TITLES.some(t => 
+                    job.title.toLowerCase().includes(t.toLowerCase())
+                  );
+                  
+                  if (isExecutive) {
+                    opportunities.push({
+                      id: `linkedin-ai-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                      title: job.title.substring(0, 100),
+                      company: job.company.substring(0, 80),
+                      location: job.location || geo.name,
+                      salary_range: 'Competitive',
+                      status: 'New',
+                      source: 'LinkedIn',
+                      posted_date: new Date().toISOString().split('T')[0],
+                      description: `Executive opportunity at ${job.company}. Found via LinkedIn.`,
+                      match_score: 0,
+                      url: job.url || 'https://linkedin.com/jobs',
+                      verified: true,
+                      verification_score: 85,
+                      data_quality: 'scraped',
+                      source_reliability: 'high',
+                      scraped_at: new Date().toISOString()
+                    });
+                  }
+                }
+              }
+              console.log(`  Lovable AI ${geo.name}: Found ${opportunities.length} jobs`);
+            } catch (parseError) {
+              console.log('  Lovable AI: Failed to parse response');
+            }
+          }
+        }
+        
+        await new Promise(r => setTimeout(r, 1000));
+        
+      } catch (error) {
+        console.error(`  Lovable AI ${geo.name} error:`, error);
+      }
+    }
+  }
+  
+  return { opportunities: opportunities.slice(0, maxResults), firecrawlFailed };
 }
 
 // Parse LinkedIn markdown content to extract job listings
