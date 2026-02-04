@@ -362,6 +362,7 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={6}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     className="bg-input border-border"
                   />
                 </div>
@@ -378,6 +379,7 @@ const Auth = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={6}
+                    autoComplete="new-password"
                     className="bg-input border-border"
                   />
                 </div>

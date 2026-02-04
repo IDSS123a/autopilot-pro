@@ -127,6 +127,7 @@ const ChangePassword: React.FC = () => {
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 required
                 placeholder="Enter current password"
+                autoComplete="current-password"
                 className="pr-10"
               />
               <button
@@ -150,6 +151,7 @@ const ChangePassword: React.FC = () => {
                 required
                 minLength={6}
                 placeholder="Enter new password (min 6 characters)"
+                autoComplete="new-password"
                 className="pr-10"
               />
               <button
@@ -173,6 +175,7 @@ const ChangePassword: React.FC = () => {
                 required
                 minLength={6}
                 placeholder="Confirm new password"
+                autoComplete="new-password"
                 className="pr-10"
               />
               <button
