@@ -27,99 +27,158 @@ interface VerifiedOpportunity {
   experience_level?: string;
 }
 
-// Region name normalization - maps frontend names to config keys
+// ===== REGION MAPPINGS =====
 const REGION_NAME_MAP: Record<string, string> = {
-  'see (southeast europe)': 'SEE',
-  'southeast europe': 'SEE',
-  'see': 'SEE',
-  'dach (germany, austria, switzerland)': 'DACH',
-  'dach': 'DACH',
-  'nordics': 'Nordics',
-  'uk & ireland': 'UK',
-  'uk': 'UK',
-  'north america': 'North America',
-  'middle east': 'Middle East',
-  'asia': 'Asia',
-  'oceania': 'Oceania',
-  'eastern europe': 'Eastern Europe',
-  'latin america': 'Latin America',
-  'africa': 'Africa',
-  'benelux': 'Benelux',
-  'france': 'France',
-  'iberia': 'Iberia',
-  'italy': 'Italy',
-  'baltics': 'Baltics',
-  'south asia': 'Asia',
-  'southeast asia': 'Asia',
-  'east asia': 'Asia',
+  'see (southeast europe)': 'SEE', 'southeast europe': 'SEE', 'see': 'SEE',
+  'dach (germany, austria, switzerland)': 'DACH', 'dach': 'DACH',
+  'nordics': 'Nordics', 'uk & ireland': 'UK', 'uk': 'UK',
+  'north america': 'North America', 'middle east': 'Middle East',
+  'asia': 'Asia', 'oceania': 'Oceania', 'eastern europe': 'Eastern Europe',
+  'latin america': 'Latin America', 'africa': 'Africa', 'benelux': 'Benelux',
+  'france': 'France', 'iberia': 'Iberia', 'italy': 'Italy', 'baltics': 'Baltics',
+  'south asia': 'Asia', 'southeast asia': 'Asia', 'east asia': 'Asia',
 };
 
-// Region to Adzuna country mapping
 const ADZUNA_COUNTRIES: Record<string, string[]> = {
-  'DACH': ['de', 'at', 'ch'],
-  'UK': ['gb'],
-  'North America': ['us', 'ca'],
-  'Nordics': ['se', 'no', 'dk', 'fi'],
-  'SEE': ['pl'], // Closest Adzuna market for SEE
-  'Eastern Europe': ['pl', 'cz', 'hu', 'ro'],
-  'Asia': ['sg', 'in'],
-  'Oceania': ['au', 'nz'],
-  'Middle East': ['ae'],
-  'Latin America': ['br', 'mx'],
-  'Africa': ['za'],
-  'Benelux': ['nl', 'be'],
-  'France': ['fr'],
-  'Italy': ['it'],
+  'DACH': ['de', 'at', 'ch'], 'UK': ['gb'], 'North America': ['us', 'ca'],
+  'Nordics': ['se', 'no', 'dk', 'fi'], 'SEE': ['pl'],
+  'Eastern Europe': ['pl', 'cz', 'hu', 'ro'], 'Asia': ['sg', 'in'],
+  'Oceania': ['au', 'nz'], 'Middle East': ['ae'], 'Latin America': ['br', 'mx'],
+  'Africa': ['za'], 'Benelux': ['nl', 'be'], 'France': ['fr'], 'Italy': ['it'],
   'Iberia': ['es', 'pt'],
 };
 
-// Region to JSearch location mapping - STRICT location queries
 const JSEARCH_LOCATIONS: Record<string, string[]> = {
-  'DACH': ['Germany', 'Munich Germany', 'Berlin Germany', 'Austria', 'Vienna Austria', 'Switzerland', 'Zurich Switzerland'],
-  'SEE': ['Croatia', 'Zagreb Croatia', 'Serbia', 'Belgrade Serbia', 'Slovenia', 'Ljubljana Slovenia', 'Bosnia Herzegovina', 'Sarajevo', 'North Macedonia', 'Skopje', 'Montenegro', 'Podgorica', 'Albania', 'Tirana', 'Kosovo', 'Pristina'],
-  'Nordics': ['Sweden', 'Stockholm Sweden', 'Norway', 'Oslo Norway', 'Denmark', 'Copenhagen Denmark', 'Finland', 'Helsinki Finland'],
-  'UK': ['United Kingdom', 'London UK', 'Manchester UK', 'Dublin Ireland', 'Ireland'],
-  'North America': ['United States', 'New York USA', 'San Francisco USA', 'Los Angeles USA', 'Canada', 'Toronto Canada'],
-  'Middle East': ['United Arab Emirates', 'Dubai UAE', 'Saudi Arabia', 'Riyadh', 'Israel', 'Tel Aviv Israel', 'Qatar', 'Doha'],
-  'Asia': ['Singapore', 'Hong Kong', 'Japan', 'Tokyo Japan', 'India', 'Bangalore India', 'Mumbai India'],
-  'Oceania': ['Australia', 'Sydney Australia', 'Melbourne Australia', 'New Zealand', 'Auckland New Zealand'],
-  'Eastern Europe': ['Poland', 'Warsaw Poland', 'Czech Republic', 'Prague', 'Hungary', 'Budapest Hungary', 'Romania', 'Bucharest Romania', 'Bulgaria', 'Sofia Bulgaria'],
-  'Latin America': ['Brazil', 'Sao Paulo Brazil', 'Argentina', 'Buenos Aires Argentina', 'Mexico', 'Mexico City Mexico', 'Chile', 'Colombia'],
-  'Africa': ['South Africa', 'Johannesburg South Africa', 'Cape Town', 'Nigeria', 'Lagos Nigeria', 'Kenya', 'Nairobi Kenya'],
-  'Benelux': ['Netherlands', 'Amsterdam Netherlands', 'Belgium', 'Brussels Belgium', 'Luxembourg'],
-  'France': ['France', 'Paris France', 'Lyon France'],
-  'Italy': ['Italy', 'Milan Italy', 'Rome Italy'],
-  'Iberia': ['Spain', 'Madrid Spain', 'Barcelona Spain', 'Portugal', 'Lisbon Portugal'],
-  'Baltics': ['Estonia', 'Tallinn Estonia', 'Latvia', 'Riga Latvia', 'Lithuania', 'Vilnius Lithuania'],
+  'DACH': ['Germany', 'Munich', 'Berlin', 'Austria', 'Vienna', 'Switzerland', 'Zurich'],
+  'SEE': ['Croatia', 'Zagreb', 'Serbia', 'Belgrade', 'Slovenia', 'Ljubljana', 'Bosnia', 'Sarajevo', 'Macedonia', 'Skopje', 'Montenegro', 'Albania', 'Kosovo'],
+  'Nordics': ['Sweden', 'Stockholm', 'Norway', 'Oslo', 'Denmark', 'Copenhagen', 'Finland', 'Helsinki'],
+  'UK': ['United Kingdom', 'London', 'Manchester', 'Dublin', 'Ireland'],
+  'North America': ['United States', 'New York', 'San Francisco', 'Los Angeles', 'Canada', 'Toronto'],
+  'Middle East': ['United Arab Emirates', 'Dubai', 'Saudi Arabia', 'Riyadh', 'Israel', 'Tel Aviv', 'Qatar', 'Doha'],
+  'Asia': ['Singapore', 'Hong Kong', 'Japan', 'Tokyo', 'India', 'Bangalore', 'Mumbai'],
+  'Oceania': ['Australia', 'Sydney', 'Melbourne', 'New Zealand', 'Auckland'],
+  'Eastern Europe': ['Poland', 'Warsaw', 'Czech Republic', 'Prague', 'Hungary', 'Budapest', 'Romania', 'Bucharest', 'Bulgaria', 'Sofia'],
+  'Latin America': ['Brazil', 'Sao Paulo', 'Argentina', 'Buenos Aires', 'Mexico', 'Mexico City', 'Chile', 'Colombia'],
+  'Africa': ['South Africa', 'Johannesburg', 'Cape Town', 'Nigeria', 'Lagos', 'Kenya', 'Nairobi'],
+  'Benelux': ['Netherlands', 'Amsterdam', 'Belgium', 'Brussels', 'Luxembourg'],
+  'France': ['France', 'Paris', 'Lyon'], 'Italy': ['Italy', 'Milan', 'Rome'],
+  'Iberia': ['Spain', 'Madrid', 'Barcelona', 'Portugal', 'Lisbon'],
+  'Baltics': ['Estonia', 'Tallinn', 'Latvia', 'Riga', 'Lithuania', 'Vilnius'],
 };
 
-// Location keywords for strict filtering - jobs MUST contain these to be included
 const REGION_LOCATION_KEYWORDS: Record<string, string[]> = {
-  'SEE': ['croatia', 'zagreb', 'split', 'rijeka', 'serbia', 'belgrade', 'novi sad', 'slovenia', 'ljubljana', 'maribor', 'bosnia', 'sarajevo', 'banja luka', 'macedonia', 'skopje', 'montenegro', 'podgorica', 'albania', 'tirana', 'kosovo', 'pristina', 'balkan'],
-  'DACH': ['germany', 'deutschland', 'munich', 'münchen', 'berlin', 'frankfurt', 'hamburg', 'austria', 'österreich', 'vienna', 'wien', 'switzerland', 'schweiz', 'zurich', 'zürich', 'geneva', 'genf', 'basel'],
-  'Nordics': ['sweden', 'sverige', 'stockholm', 'gothenburg', 'norway', 'norge', 'oslo', 'bergen', 'denmark', 'danmark', 'copenhagen', 'finland', 'suomi', 'helsinki'],
-  'UK': ['united kingdom', 'uk', 'london', 'manchester', 'birmingham', 'leeds', 'glasgow', 'edinburgh', 'ireland', 'dublin', 'belfast', 'britain', 'british'],
+  'SEE': ['croatia', 'zagreb', 'split', 'rijeka', 'serbia', 'belgrade', 'novi sad', 'slovenia', 'ljubljana', 'maribor', 'bosnia', 'sarajevo', 'banja luka', 'macedonia', 'skopje', 'montenegro', 'podgorica', 'albania', 'tirana', 'kosovo', 'pristina', 'balkan', 'southeast europe', 'adriatic'],
+  'DACH': ['germany', 'deutschland', 'munich', 'münchen', 'berlin', 'frankfurt', 'hamburg', 'austria', 'österreich', 'vienna', 'wien', 'switzerland', 'schweiz', 'zurich', 'zürich', 'geneva', 'genf', 'basel', 'dach'],
+  'Nordics': ['sweden', 'sverige', 'stockholm', 'gothenburg', 'norway', 'norge', 'oslo', 'bergen', 'denmark', 'danmark', 'copenhagen', 'finland', 'suomi', 'helsinki', 'nordic', 'scandinavia'],
+  'UK': ['united kingdom', 'uk', 'london', 'manchester', 'birmingham', 'leeds', 'glasgow', 'edinburgh', 'ireland', 'dublin', 'belfast', 'britain', 'british', 'england', 'scotland', 'wales'],
   'North America': ['usa', 'united states', 'america', 'new york', 'california', 'san francisco', 'los angeles', 'chicago', 'boston', 'seattle', 'austin', 'texas', 'canada', 'toronto', 'vancouver', 'montreal'],
-  'Middle East': ['uae', 'dubai', 'abu dhabi', 'saudi', 'riyadh', 'jeddah', 'qatar', 'doha', 'bahrain', 'israel', 'tel aviv', 'kuwait', 'oman'],
-  'Asia': ['singapore', 'hong kong', 'japan', 'tokyo', 'osaka', 'china', 'shanghai', 'beijing', 'korea', 'seoul', 'india', 'mumbai', 'bangalore', 'delhi', 'malaysia', 'kuala lumpur', 'thailand', 'bangkok', 'vietnam', 'indonesia', 'jakarta'],
-  'Oceania': ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'new zealand', 'auckland', 'wellington'],
+  'Middle East': ['uae', 'dubai', 'abu dhabi', 'saudi', 'riyadh', 'jeddah', 'qatar', 'doha', 'bahrain', 'israel', 'tel aviv', 'kuwait', 'oman', 'middle east', 'gcc', 'gulf'],
+  'Asia': ['singapore', 'hong kong', 'japan', 'tokyo', 'osaka', 'china', 'shanghai', 'beijing', 'korea', 'seoul', 'india', 'mumbai', 'bangalore', 'delhi', 'malaysia', 'kuala lumpur', 'thailand', 'bangkok', 'vietnam', 'indonesia', 'jakarta', 'asia pacific', 'apac'],
+  'Oceania': ['australia', 'sydney', 'melbourne', 'brisbane', 'perth', 'new zealand', 'auckland', 'wellington', 'oceania'],
   'Eastern Europe': ['poland', 'warsaw', 'krakow', 'czech', 'prague', 'hungary', 'budapest', 'romania', 'bucharest', 'bulgaria', 'sofia'],
-  'Latin America': ['brazil', 'brasil', 'sao paulo', 'rio de janeiro', 'argentina', 'buenos aires', 'mexico', 'ciudad de mexico', 'chile', 'santiago', 'colombia', 'bogota', 'peru', 'lima'],
-  'Africa': ['south africa', 'johannesburg', 'cape town', 'nigeria', 'lagos', 'kenya', 'nairobi', 'egypt', 'cairo', 'morocco', 'casablanca'],
-  'Benelux': ['netherlands', 'holland', 'amsterdam', 'rotterdam', 'belgium', 'brussels', 'antwerp', 'luxembourg'],
-  'France': ['france', 'paris', 'lyon', 'marseille', 'toulouse'],
-  'Italy': ['italy', 'italia', 'milan', 'milano', 'rome', 'roma', 'turin', 'torino'],
-  'Iberia': ['spain', 'españa', 'madrid', 'barcelona', 'portugal', 'lisbon', 'lisboa', 'porto'],
-  'Baltics': ['estonia', 'tallinn', 'latvia', 'riga', 'lithuania', 'vilnius'],
+  'Latin America': ['brazil', 'brasil', 'sao paulo', 'rio de janeiro', 'argentina', 'buenos aires', 'mexico', 'ciudad de mexico', 'chile', 'santiago', 'colombia', 'bogota', 'peru', 'lima', 'latam'],
+  'Africa': ['south africa', 'johannesburg', 'cape town', 'nigeria', 'lagos', 'kenya', 'nairobi', 'egypt', 'cairo', 'morocco', 'casablanca', 'africa'],
+  'Benelux': ['netherlands', 'holland', 'amsterdam', 'rotterdam', 'belgium', 'brussels', 'antwerp', 'luxembourg', 'benelux'],
+  'France': ['france', 'paris', 'lyon', 'marseille', 'toulouse', 'french'],
+  'Italy': ['italy', 'italia', 'milan', 'milano', 'rome', 'roma', 'turin', 'torino', 'italian'],
+  'Iberia': ['spain', 'españa', 'madrid', 'barcelona', 'portugal', 'lisbon', 'lisboa', 'porto', 'iberia'],
+  'Baltics': ['estonia', 'tallinn', 'latvia', 'riga', 'lithuania', 'vilnius', 'baltic'],
 };
-// Industry categories for filtering
-const INDUSTRY_CATEGORIES = [
-  'Technology', 'Finance', 'Healthcare', 'Manufacturing', 'Retail',
-  'Energy', 'Telecommunications', 'Automotive', 'Consulting', 'Media',
-  'Real Estate', 'Logistics', 'Pharma', 'Insurance', 'Education'
+
+const REGION_CONFIGS: Record<string, {
+  locations: string[], currency: string, languages: string[], realCompanies: string[]
+}> = {
+  'DACH': { 
+    locations: ['Germany', 'Munich', 'Berlin', 'Frankfurt', 'Hamburg', 'Austria', 'Vienna', 'Switzerland', 'Zurich', 'Geneva'], 
+    currency: '€', languages: ['de', 'en'],
+    realCompanies: ['Siemens', 'SAP', 'Deutsche Bank', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'BASF', 'Bayer', 'Allianz', 'Deutsche Telekom', 'Bosch', 'Continental', 'Porsche', 'Zalando', 'Delivery Hero', 'HelloFresh', 'Erste Group', 'OMV', 'Nestle', 'Novartis', 'Roche', 'UBS', 'ABB', 'Zurich Insurance']
+  },
+  'SEE': { 
+    locations: ['Croatia', 'Zagreb', 'Split', 'Serbia', 'Belgrade', 'Slovenia', 'Ljubljana', 'Bosnia', 'Sarajevo', 'North Macedonia', 'Skopje', 'Montenegro', 'Albania', 'Tirana', 'Kosovo', 'Pristina'], 
+    currency: '€', languages: ['en', 'hr', 'sr', 'sl'],
+    realCompanies: ['Rimac Automobili', 'Infobip', 'Span', 'Končar', 'Podravka', 'Atlantic Grupa', 'Fortenova Group', 'Pliva', 'INA', 'HEP', 'Zagrebačka banka', 'PBZ', 'Erste Bank Croatia', 'Telekom Slovenije', 'Krka', 'Gorenje', 'NLB', 'Telenor Serbia', 'NIS', 'MK Group', 'BH Telecom', 'Makedonski Telekom', 'ONE Montenegro']
+  },
+  'Nordics': { 
+    locations: ['Sweden', 'Stockholm', 'Norway', 'Oslo', 'Denmark', 'Copenhagen', 'Finland', 'Helsinki'], 
+    currency: 'SEK', languages: ['en', 'sv', 'no', 'da', 'fi'],
+    realCompanies: ['Ericsson', 'Volvo', 'IKEA', 'H&M', 'Spotify', 'Klarna', 'Telenor', 'DNB', 'Equinor', 'Maersk', 'Novo Nordisk', 'Carlsberg', 'Vestas', 'Orsted', 'Danske Bank', 'Nordea', 'Nokia', 'Kone', 'Wärtsilä', 'Neste']
+  },
+  'UK': { 
+    locations: ['United Kingdom', 'London', 'Manchester', 'Birmingham', 'Edinburgh', 'Bristol', 'Ireland', 'Dublin'], 
+    currency: '£', languages: ['en'],
+    realCompanies: ['HSBC', 'Barclays', 'BP', 'Shell UK', 'Unilever', 'GSK', 'AstraZeneca', 'Vodafone', 'BT Group', 'Tesco', 'Lloyds Banking', 'Rolls-Royce', 'BAE Systems', 'Diageo', 'Revolut', 'Wise', 'Deliveroo', 'Monzo']
+  },
+  'North America': { 
+    locations: ['USA', 'New York', 'San Francisco', 'Los Angeles', 'Chicago', 'Boston', 'Seattle', 'Austin', 'Canada', 'Toronto', 'Vancouver'], 
+    currency: '$', languages: ['en'],
+    realCompanies: ['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta', 'Tesla', 'NVIDIA', 'JPMorgan Chase', 'Goldman Sachs', 'Morgan Stanley', 'Johnson & Johnson', 'Pfizer', 'Walmart', 'Netflix', 'Salesforce', 'Oracle', 'Adobe', 'Uber', 'Airbnb', 'Shopify']
+  },
+  'Middle East': { 
+    locations: ['UAE', 'Dubai', 'Abu Dhabi', 'Saudi Arabia', 'Riyadh', 'Qatar', 'Doha', 'Israel', 'Tel Aviv'], 
+    currency: 'AED', languages: ['en', 'ar'],
+    realCompanies: ['Saudi Aramco', 'SABIC', 'Emirates', 'Etihad', 'ADNOC', 'Mubadala', 'DP World', 'Majid Al Futtaim', 'Emaar', 'Qatar Airways', 'QatarEnergy', 'Teva Pharma', 'Check Point', 'Wix', 'Monday.com']
+  },
+  'Asia': { 
+    locations: ['Singapore', 'Hong Kong', 'Japan', 'Tokyo', 'China', 'Shanghai', 'India', 'Mumbai', 'Bangalore'], 
+    currency: 'SGD', languages: ['en'],
+    realCompanies: ['DBS Bank', 'OCBC', 'Singtel', 'Grab', 'Sea Limited', 'Toyota', 'Sony', 'SoftBank', 'Samsung', 'Hyundai', 'Tata Group', 'Reliance Industries', 'Infosys', 'TCS', 'Alibaba', 'Tencent', 'ByteDance']
+  },
+  'Oceania': { 
+    locations: ['Australia', 'Sydney', 'Melbourne', 'Brisbane', 'New Zealand', 'Auckland'], 
+    currency: 'AUD', languages: ['en'],
+    realCompanies: ['Commonwealth Bank', 'Westpac', 'ANZ', 'NAB', 'BHP', 'Rio Tinto', 'Telstra', 'Woolworths', 'CSL', 'Atlassian', 'Canva', 'Afterpay', 'Xero', 'Air New Zealand']
+  },
+  'Eastern Europe': { 
+    locations: ['Poland', 'Warsaw', 'Czech Republic', 'Prague', 'Hungary', 'Budapest', 'Romania', 'Bucharest', 'Bulgaria', 'Sofia'], 
+    currency: 'PLN', languages: ['en', 'pl'],
+    realCompanies: ['PKO Bank Polski', 'Orlen', 'CD Projekt', 'Allegro', 'InPost', 'Skoda Auto', 'CEZ Group', 'OTP Bank', 'MOL Group', 'Wizz Air', 'OMV Petrom', 'UiPath']
+  },
+  'Latin America': { 
+    locations: ['Brazil', 'São Paulo', 'Argentina', 'Buenos Aires', 'Mexico', 'Mexico City', 'Chile', 'Colombia'], 
+    currency: 'BRL', languages: ['es', 'pt', 'en'],
+    realCompanies: ['Petrobras', 'Vale', 'Itaú Unibanco', 'Nubank', 'MercadoLibre', 'América Móvil', 'Cemex', 'Femsa', 'LATAM Airlines', 'Rappi']
+  },
+  'Africa': { 
+    locations: ['South Africa', 'Johannesburg', 'Cape Town', 'Nigeria', 'Lagos', 'Kenya', 'Nairobi'], 
+    currency: 'ZAR', languages: ['en'],
+    realCompanies: ['Naspers', 'Sasol', 'MTN Group', 'Standard Bank', 'FirstRand', 'Safaricom', 'Dangote Group']
+  },
+  'Benelux': { 
+    locations: ['Netherlands', 'Amsterdam', 'Belgium', 'Brussels', 'Luxembourg'], 
+    currency: '€', languages: ['en', 'nl'],
+    realCompanies: ['Shell', 'Philips', 'ASML', 'ING', 'Heineken', 'AB InBev', 'KBC', 'ArcelorMittal']
+  },
+  'France': { 
+    locations: ['France', 'Paris', 'Lyon', 'Marseille'], 
+    currency: '€', languages: ['fr', 'en'],
+    realCompanies: ['TotalEnergies', 'LVMH', 'Sanofi', 'BNP Paribas', 'AXA', 'Renault', 'Orange', 'Société Générale', 'Danone', 'L\'Oréal']
+  },
+  'Italy': { 
+    locations: ['Italy', 'Milan', 'Rome', 'Turin'], 
+    currency: '€', languages: ['it', 'en'],
+    realCompanies: ['Enel', 'Eni', 'UniCredit', 'Intesa Sanpaolo', 'Ferrari', 'Fiat', 'Luxottica', 'Generali']
+  },
+  'Iberia': { 
+    locations: ['Spain', 'Madrid', 'Barcelona', 'Portugal', 'Lisbon'], 
+    currency: '€', languages: ['es', 'pt', 'en'],
+    realCompanies: ['Santander', 'BBVA', 'Telefonica', 'Iberdrola', 'Inditex', 'EDP', 'Galp', 'BCP']
+  },
+  'Baltics': { 
+    locations: ['Estonia', 'Tallinn', 'Latvia', 'Riga', 'Lithuania', 'Vilnius'], 
+    currency: '€', languages: ['en', 'et', 'lv', 'lt'],
+    realCompanies: ['Swedbank Baltic', 'SEB Baltic', 'Bolt', 'Wise', 'TransferGo', 'Ignitis Group']
+  }
+};
+
+const EXECUTIVE_TITLES = [
+  'CEO', 'Chief Executive Officer', 'President', 'CFO', 'Chief Financial Officer',
+  'CTO', 'Chief Technology Officer', 'VP Engineering', 'COO', 'Chief Operating Officer',
+  'CMO', 'Chief Marketing Officer', 'CHRO', 'CIO', 'Chief Information Officer',
+  'CDO', 'Chief Data Officer', 'Chief Digital Officer', 'CSO', 'Chief Strategy Officer',
+  'CPO', 'Chief Product Officer', 'VP Product', 'Managing Director', 'General Manager',
+  'Director', 'Vice President', 'SVP', 'EVP', 'Head of', 'Senior Director'
 ];
 
-// Experience levels
 const EXPERIENCE_LEVELS = [
   { id: 'c_level', name: 'C-Level', keywords: ['ceo', 'cto', 'cfo', 'coo', 'cmo', 'cio', 'cdo', 'cpo', 'chief'] },
   { id: 'vp', name: 'VP/SVP/EVP', keywords: ['vice president', 'vp', 'svp', 'evp', 'senior vice'] },
@@ -127,250 +186,96 @@ const EXPERIENCE_LEVELS = [
   { id: 'manager', name: 'Senior Manager', keywords: ['senior manager', 'manager', 'lead'] }
 ];
 
-// The Muse location mappings
-const MUSE_LOCATIONS: Record<string, string[]> = {
-  'DACH': ['Berlin, Germany', 'Munich, Germany', 'Frankfurt, Germany', 'Zurich, Switzerland', 'Vienna, Austria'],
-  'UK': ['London, United Kingdom', 'Manchester, United Kingdom', 'Dublin, Ireland'],
-  'North America': ['New York City Metro Area', 'San Francisco Bay Area', 'Los Angeles CA', 'Chicago IL', 'Seattle WA', 'Austin TX', 'Boston MA', 'Toronto, Canada'],
-  'SEE': ['Europe'],
-  'Nordics': ['Europe'],
-  'Eastern Europe': ['Europe'],
-  'Middle East': ['Dubai, United Arab Emirates'],
-  'Asia': ['Singapore', 'Hong Kong', 'Tokyo, Japan', 'India'],
-  'Oceania': ['Sydney, Australia', 'Melbourne, Australia'],
-  'Latin America': ['Brazil', 'Mexico'],
-  'Africa': ['South Africa'],
-  'Benelux': ['Amsterdam, Netherlands', 'Brussels, Belgium'],
-  'France': ['Paris, France'],
-  'Italy': ['Milan, Italy', 'Rome, Italy'],
-  'Iberia': ['Madrid, Spain', 'Barcelona, Spain', 'Lisbon, Portugal'],
-  'Baltics': ['Europe'],
+const LINKEDIN_GEOID_MAP: Record<string, { geoId: string; name: string }[]> = {
+  'SEE': [
+    { geoId: '104688944', name: 'Croatia' }, { geoId: '101855366', name: 'Serbia' },
+    { geoId: '101727083', name: 'Slovenia' }, { geoId: '100994331', name: 'Bosnia and Herzegovina' },
+    { geoId: '105149290', name: 'North Macedonia' }, { geoId: '101683237', name: 'Montenegro' },
+    { geoId: '102845717', name: 'Albania' }, { geoId: '91000007', name: 'Southeast Europe' }
+  ],
+  'DACH': [
+    { geoId: '101282230', name: 'Germany' }, { geoId: '103883259', name: 'Austria' },
+    { geoId: '106693272', name: 'Switzerland' }
+  ],
+  'Nordics': [
+    { geoId: '105117694', name: 'Sweden' }, { geoId: '103819153', name: 'Norway' },
+    { geoId: '104514075', name: 'Denmark' }, { geoId: '100456013', name: 'Finland' }
+  ],
+  'UK': [{ geoId: '101165590', name: 'United Kingdom' }, { geoId: '104738515', name: 'Ireland' }],
+  'North America': [{ geoId: '103644278', name: 'United States' }, { geoId: '101174742', name: 'Canada' }],
+  'Middle East': [
+    { geoId: '104305776', name: 'UAE' }, { geoId: '100459316', name: 'Saudi Arabia' },
+    { geoId: '104396105', name: 'Israel' }, { geoId: '103495196', name: 'Qatar' }
+  ],
+  'Asia': [
+    { geoId: '102454443', name: 'Singapore' }, { geoId: '103291313', name: 'Hong Kong' },
+    { geoId: '101355337', name: 'Japan' }, { geoId: '102713980', name: 'India' }
+  ],
+  'Oceania': [{ geoId: '101452733', name: 'Australia' }, { geoId: '105490917', name: 'New Zealand' }],
+  'Eastern Europe': [
+    { geoId: '105072130', name: 'Poland' }, { geoId: '104508036', name: 'Czech Republic' },
+    { geoId: '100288700', name: 'Hungary' }, { geoId: '106670623', name: 'Romania' }, { geoId: '105333783', name: 'Bulgaria' }
+  ],
+  'Europe': [{ geoId: '91000000', name: 'European Union' }]
 };
 
-// Helper function to normalize region names
+// ===== HELPER FUNCTIONS =====
 function normalizeRegionName(regionInput: string): string {
-  const lower = regionInput.toLowerCase().trim();
-  return REGION_NAME_MAP[lower] || regionInput;
+  return REGION_NAME_MAP[regionInput.toLowerCase().trim()] || regionInput;
 }
 
-// Helper function to filter jobs by region location - RELAXED for remote jobs
 function jobMatchesRegion(job: VerifiedOpportunity, normalizedRegions: string[]): boolean {
   const locationLower = (job.location || '').toLowerCase();
   const descLower = (job.description || '').toLowerCase();
-  const companyLower = (job.company || '').toLowerCase();
   const titleLower = (job.title || '').toLowerCase();
   
-  // ALWAYS include remote/worldwide jobs - they are available for all regions
   const remoteKeywords = ['remote', 'worldwide', 'global', 'anywhere', 'work from home', 'wfh', 'fully remote', 'distributed'];
-  const isRemote = remoteKeywords.some(kw => 
-    locationLower.includes(kw) || descLower.includes(kw) || titleLower.includes(kw)
-  );
-  if (isRemote) {
-    console.log(`  ✅ Including remote job: ${job.title} at ${job.company}`);
+  if (remoteKeywords.some(kw => locationLower.includes(kw) || descLower.includes(kw) || titleLower.includes(kw))) {
     return true;
   }
   
-  // Include jobs with generic "Europe" location for European regions
   const europeanRegions = ['SEE', 'DACH', 'Nordics', 'UK', 'Eastern Europe', 'Benelux', 'France', 'Italy', 'Iberia', 'Baltics'];
   const isEuropeanSearch = normalizedRegions.some(r => europeanRegions.includes(r));
-  if (isEuropeanSearch) {
-    const europeKeywords = ['europe', 'european', 'eu', 'emea'];
-    const isEuropeWide = europeKeywords.some(kw => locationLower.includes(kw));
-    if (isEuropeWide) {
-      return true;
-    }
+  if (isEuropeanSearch && ['europe', 'european', 'eu', 'emea'].some(kw => locationLower.includes(kw))) {
+    return true;
   }
   
   for (const region of normalizedRegions) {
     const keywords = REGION_LOCATION_KEYWORDS[region] || [];
-    for (const keyword of keywords) {
-      if (locationLower.includes(keyword) || descLower.includes(keyword)) {
-        return true;
-      }
+    if (keywords.some(keyword => locationLower.includes(keyword) || descLower.includes(keyword))) {
+      return true;
     }
-    // Also check against config locations
     const config = REGION_CONFIGS[region];
-    if (config) {
-      for (const loc of config.locations) {
-        if (locationLower.includes(loc.toLowerCase())) {
-          return true;
-        }
-      }
-      // Check if company is from this region
-      for (const company of config.realCompanies) {
-        if (companyLower.includes(company.toLowerCase())) {
-          return true;
-        }
-      }
+    if (config?.locations.some(loc => locationLower.includes(loc.toLowerCase()))) {
+      return true;
     }
   }
   return false;
 }
 
-// Comprehensive region configurations
-const REGION_CONFIGS: Record<string, {
-  locations: string[], 
-  currency: string,
-  jobBoardDomains: { domain: string; reliability: 'high' | 'medium' | 'low' }[],
-  languages: string[],
-  realCompanies: string[]
-}> = {
-  'DACH': { 
-    locations: ['Germany', 'Munich', 'Berlin', 'Frankfurt', 'Hamburg', 'Austria', 'Vienna', 'Switzerland', 'Zurich', 'Geneva'], 
-    currency: '€',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'stepstone.de', reliability: 'high' },
-      { domain: 'xing.com', reliability: 'high' },
-      { domain: 'jobs.ch', reliability: 'high' }
-    ],
-    languages: ['de', 'en'],
-    realCompanies: ['Siemens', 'SAP', 'Deutsche Bank', 'BMW', 'Mercedes-Benz', 'Volkswagen', 'BASF', 'Bayer', 'Allianz', 'Deutsche Telekom', 'Bosch', 'Continental', 'Henkel', 'Infineon', 'Adidas', 'Porsche', 'Deutsche Post DHL', 'E.ON', 'RWE', 'Thyssen Krupp', 'Zalando', 'Delivery Hero', 'HelloFresh', 'Erste Group', 'Raiffeisen Bank', 'OMV', 'voestalpine', 'Nestle', 'Novartis', 'Roche', 'UBS', 'Credit Suisse', 'Swiss Re', 'ABB', 'Zurich Insurance']
-  },
-  'SEE': { 
-    locations: ['Croatia', 'Zagreb', 'Split', 'Rijeka', 'Serbia', 'Belgrade', 'Novi Sad', 'Slovenia', 'Ljubljana', 'Maribor', 'Bosnia and Herzegovina', 'Sarajevo', 'Banja Luka', 'North Macedonia', 'Skopje', 'Montenegro', 'Podgorica', 'Albania', 'Tirana', 'Kosovo', 'Pristina'], 
-    currency: '€',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'posao.hr', reliability: 'high' },
-      { domain: 'moj-posao.net', reliability: 'high' },
-      { domain: 'infostud.com', reliability: 'high' },
-      { domain: 'mojedelo.com', reliability: 'high' },
-      { domain: 'posao.ba', reliability: 'high' }
-    ],
-    languages: ['en', 'hr', 'sr', 'sl', 'bs'],
-    realCompanies: ['Rimac Automobili', 'Infobip', 'Span', 'Končar', 'Podravka', 'Atlantic Grupa', 'Fortenova Group', 'Pliva', 'INA', 'HEP', 'Zagrebačka banka', 'PBZ', 'Erste Bank Croatia', 'Telekom Slovenije', 'Krka', 'Gorenje', 'Petrol', 'NLB', 'Lek', 'Revoz', 'Telenor Serbia', 'NIS', 'Delhaize Serbia', 'Agrokor', 'MK Group', 'Victoria Group', 'UniCredit Serbia', 'Raiffeisen Serbia', 'ASA Group Sarajevo', 'BH Telecom', 'Sarajevo Insurance', 'Elektroprivreda BiH', 'ONE Montenegro', 'Telenor Montenegro', 'Makedonski Telekom', 'Komercijalna Banka', 'EVN Macedonia', 'Albtelekom', 'Kastrati Group']
-  },
-  'Nordics': { 
-    locations: ['Sweden', 'Stockholm', 'Gothenburg', 'Norway', 'Oslo', 'Bergen', 'Denmark', 'Copenhagen', 'Finland', 'Helsinki'], 
-    currency: 'SEK',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'finn.no', reliability: 'high' },
-      { domain: 'jobindex.dk', reliability: 'high' }
-    ],
-    languages: ['en', 'sv', 'no', 'da', 'fi'],
-    realCompanies: ['Ericsson', 'Volvo', 'IKEA', 'H&M', 'Spotify', 'Klarna', 'Scania', 'Atlas Copco', 'Sandvik', 'SKF', 'Electrolux', 'ABB Sweden', 'Telenor', 'DNB', 'Equinor', 'Yara', 'Norsk Hydro', 'Storebrand', 'Maersk', 'Novo Nordisk', 'Carlsberg', 'Vestas', 'Orsted', 'Danske Bank', 'Nordea', 'Nokia', 'Kone', 'Wärtsilä', 'UPM', 'Stora Enso', 'Neste']
-  },
-  'UK': { 
-    locations: ['United Kingdom', 'London', 'Manchester', 'Birmingham', 'Edinburgh', 'Glasgow', 'Bristol', 'Ireland', 'Dublin'], 
-    currency: '£',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'reed.co.uk', reliability: 'high' },
-      { domain: 'totaljobs.com', reliability: 'high' }
-    ],
-    languages: ['en'],
-    realCompanies: ['HSBC', 'Barclays', 'BP', 'Shell UK', 'Unilever', 'GSK', 'AstraZeneca', 'Vodafone', 'BT Group', 'Tesco', 'Sainsbury', 'Lloyds Banking', 'NatWest', 'Rolls-Royce', 'BAE Systems', 'Rio Tinto', 'Anglo American', 'Diageo', 'Reckitt', 'Prudential', 'Legal & General', 'Aviva', 'Standard Chartered', 'RELX', 'Compass Group', 'Experian', 'InterContinental Hotels', 'WPP', 'Sage Group', 'Revolut', 'Wise', 'Deliveroo', 'Monzo', 'CRH', 'Kerry Group', 'Ryanair', 'AIB', 'Bank of Ireland']
-  },
-  'North America': { 
-    locations: ['USA', 'New York', 'San Francisco', 'Los Angeles', 'Chicago', 'Boston', 'Seattle', 'Austin', 'Miami', 'Canada', 'Toronto', 'Vancouver', 'Montreal'], 
-    currency: '$',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'indeed.com', reliability: 'high' },
-      { domain: 'glassdoor.com', reliability: 'high' }
-    ],
-    languages: ['en'],
-    realCompanies: ['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta', 'Tesla', 'NVIDIA', 'JPMorgan Chase', 'Goldman Sachs', 'Morgan Stanley', 'Bank of America', 'Citigroup', 'Wells Fargo', 'Johnson & Johnson', 'Pfizer', 'Merck', 'UnitedHealth', 'CVS Health', 'Walmart', 'Costco', 'Home Depot', 'Disney', 'Netflix', 'Coca-Cola', 'PepsiCo', 'Procter & Gamble', 'Intel', 'AMD', 'Salesforce', 'Oracle', 'IBM', 'Cisco', 'Adobe', 'PayPal', 'Stripe', 'Uber', 'Airbnb', 'Shopify', 'RBC', 'TD Bank', 'BMO', 'Manulife', 'Sun Life', 'Brookfield', 'Lululemon']
-  },
-  'Middle East': { 
-    locations: ['UAE', 'Dubai', 'Abu Dhabi', 'Saudi Arabia', 'Riyadh', 'Jeddah', 'Qatar', 'Doha', 'Bahrain', 'Israel', 'Tel Aviv'], 
-    currency: 'AED',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'bayt.com', reliability: 'high' },
-      { domain: 'gulftalent.com', reliability: 'high' }
-    ],
-    languages: ['en', 'ar'],
-    realCompanies: ['Saudi Aramco', 'SABIC', 'STC', 'Al Rajhi Bank', 'Saudi National Bank', 'Ma\'aden', 'ACWA Power', 'Emirates', 'Etihad', 'ADNOC', 'Mubadala', 'ENOC', 'DP World', 'Majid Al Futtaim', 'Emaar', 'Dubai Holding', 'Qatar Airways', 'QatarEnergy', 'Qatar National Bank', 'Ooredoo', 'Teva Pharma', 'Check Point', 'Wix', 'Monday.com', 'Fiverr', 'Bank Leumi', 'Bank Hapoalim']
-  },
-  'Asia': { 
-    locations: ['Singapore', 'Hong Kong', 'Japan', 'Tokyo', 'China', 'Shanghai', 'Beijing', 'South Korea', 'Seoul', 'India', 'Mumbai', 'Bangalore'], 
-    currency: 'SGD',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'jobstreet.com', reliability: 'high' }
-    ],
-    languages: ['en'],
-    realCompanies: ['DBS Bank', 'OCBC', 'UOB', 'Singtel', 'CapitaLand', 'Grab', 'Sea Limited', 'HSBC Hong Kong', 'CK Hutchison', 'Swire Pacific', 'Toyota', 'Sony', 'SoftBank', 'Mitsubishi', 'Samsung', 'Hyundai', 'SK Group', 'LG', 'Tata Group', 'Reliance Industries', 'Infosys', 'TCS', 'Wipro', 'HDFC Bank', 'ICICI Bank', 'Alibaba', 'Tencent', 'JD.com', 'Baidu', 'ByteDance']
-  },
-  'Oceania': { 
-    locations: ['Australia', 'Sydney', 'Melbourne', 'Brisbane', 'Perth', 'New Zealand', 'Auckland', 'Wellington'], 
-    currency: 'AUD',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'seek.com.au', reliability: 'high' }
-    ],
-    languages: ['en'],
-    realCompanies: ['Commonwealth Bank', 'Westpac', 'ANZ', 'NAB', 'Macquarie Group', 'BHP', 'Rio Tinto Australia', 'Woodside', 'Santos', 'Fortescue Metals', 'Telstra', 'Optus', 'Woolworths', 'Coles', 'Wesfarmers', 'CSL', 'Cochlear', 'Atlassian', 'Canva', 'Afterpay', 'REA Group', 'Xero', 'Fisher & Paykel', 'Fonterra', 'Fletcher Building', 'Air New Zealand', 'Spark NZ']
-  },
-  'Eastern Europe': { 
-    locations: ['Poland', 'Warsaw', 'Krakow', 'Czech Republic', 'Prague', 'Hungary', 'Budapest', 'Romania', 'Bucharest', 'Bulgaria', 'Sofia'], 
-    currency: 'PLN',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'pracuj.pl', reliability: 'high' },
-      { domain: 'jobs.cz', reliability: 'high' }
-    ],
-    languages: ['en', 'pl'],
-    realCompanies: ['PKO Bank Polski', 'Orlen', 'PZU', 'KGHM', 'CD Projekt', 'Allegro', 'InPost', 'LPP', 'Dino Polska', 'Skoda Auto', 'CEZ Group', 'Komercni Banka', 'Avast', 'OTP Bank', 'MOL Group', 'Richter Gedeon', 'Wizz Air', 'OMV Petrom', 'Banca Transilvania', 'Bitdefender', 'UiPath', 'Euroins', 'Sopharma']
-  },
-  'Latin America': { 
-    locations: ['Brazil', 'São Paulo', 'Rio de Janeiro', 'Argentina', 'Buenos Aires', 'Mexico', 'Mexico City', 'Chile', 'Santiago', 'Colombia', 'Bogotá'], 
-    currency: 'BRL',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'indeed.com.br', reliability: 'high' }
-    ],
-    languages: ['es', 'pt', 'en'],
-    realCompanies: ['Petrobras', 'Vale', 'Itaú Unibanco', 'Bradesco', 'Banco do Brasil', 'Ambev', 'JBS', 'Magazine Luiza', 'Nubank', 'MercadoLibre', 'YPF', 'Banco Galicia', 'Techint', 'Globant', 'Despegar', 'América Móvil', 'Cemex', 'Femsa', 'Bimbo', 'BBVA Mexico', 'Falabella', 'LATAM Airlines', 'Banco de Chile', 'Ecopetrol', 'Bancolombia', 'Avianca', 'Rappi']
-  },
-  'Africa': { 
-    locations: ['South Africa', 'Johannesburg', 'Cape Town', 'Nigeria', 'Lagos', 'Kenya', 'Nairobi', 'Egypt', 'Cairo', 'Morocco', 'Casablanca'], 
-    currency: 'ZAR',
-    jobBoardDomains: [
-      { domain: 'linkedin.com', reliability: 'high' },
-      { domain: 'careers24.com', reliability: 'high' }
-    ],
-    languages: ['en'],
-    realCompanies: ['Naspers', 'Sasol', 'MTN Group', 'Standard Bank', 'FirstRand', 'Shoprite', 'Vodacom', 'Discovery', 'Anglo American SA', 'Dangote Group', 'Zenith Bank', 'Access Bank', 'GTBank', 'Safaricom', 'Equity Bank', 'KCB Group', 'Commercial International Bank', 'OCP Group', 'Attijariwafa Bank', 'Maroc Telecom']
-  }
-};
+function isExecutiveTitle(title: string): boolean {
+  const lower = title.toLowerCase();
+  return EXECUTIVE_TITLES.some(t => lower.includes(t.toLowerCase()));
+}
 
-// Executive titles for filtering
-const EXECUTIVE_TITLES = [
-  'CEO', 'Chief Executive Officer', 'President',
-  'CFO', 'Chief Financial Officer', 'Finance Director',
-  'CTO', 'Chief Technology Officer', 'VP Engineering',
-  'COO', 'Chief Operating Officer', 'Operations Director',
-  'CMO', 'Chief Marketing Officer', 'VP Marketing',
-  'CHRO', 'Chief Human Resources Officer', 'VP HR',
-  'CIO', 'Chief Information Officer', 'IT Director',
-  'CDO', 'Chief Data Officer', 'Chief Digital Officer',
-  'CSO', 'Chief Strategy Officer', 'Chief Sales Officer',
-  'CPO', 'Chief Product Officer', 'VP Product',
-  'Managing Director', 'General Manager', 'Director',
-  'Vice President', 'SVP', 'EVP', 'Head of', 'Senior Director'
-];
+function sanitizeInput(input: string, maxLength = 500): string {
+  if (!input) return '';
+  return input.replace(/<[^>]*>/g, '').trim().substring(0, maxLength);
+}
 
-// Executive search keywords for API queries
-const EXECUTIVE_KEYWORDS = [
-  'CEO', 'CTO', 'CFO', 'COO', 'CMO',
-  'Chief Executive', 'Chief Technology', 'Chief Financial', 'Chief Operating',
-  'Vice President', 'VP', 'SVP', 'EVP',
-  'Managing Director', 'General Manager',
-  'Director', 'Head of', 'Senior Director',
-  'C-Level', 'C-Suite', 'Executive'
-];
-
+// ===== MAIN HANDLER =====
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { regions, userProfile, daysBack = 7, maxResults = 500, industryFilter, experienceLevelFilter } = await req.json();
+    const body = await req.json();
+    const regions = body.regions || ['SEE'];
+    const userProfile = body.userProfile || {};
+    const maxResults = Math.min(body.maxResults || 1000, 2000); // Increased default
+    const industryFilter = sanitizeInput(body.industryFilter || '');
+    const experienceLevelFilter = sanitizeInput(body.experienceLevelFilter || '');
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY');
@@ -379,303 +284,172 @@ serve(async (req) => {
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     
     if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'AI API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('🔍 Starting comprehensive opportunity scan for regions:', regions);
-    console.log('🔧 Filters - Industry:', industryFilter || 'All', 'Experience:', experienceLevelFilter || 'All');
-    console.log('📊 API Keys available:', {
-      rapidApi: !!RAPIDAPI_KEY,
-      adzuna: !!ADZUNA_APP_ID && !!ADZUNA_API_KEY,
-      firecrawl: !!FIRECRAWL_API_KEY
-    });
-
-    const targetRole = userProfile?.targetRole || 'Executive Leadership';
-    const industries = userProfile?.industries || 'Technology, Finance, Manufacturing';
-    const bio = userProfile?.bio || '';
+    console.log('🔍 Comprehensive scan for:', regions);
     
-    // Extract role keywords for search
-    const roleKeywords = targetRole.split(/[\/\s,]+/).filter((k: string) => k.length > 2);
+    const targetRole = sanitizeInput(userProfile?.targetRole || 'Executive Leadership');
+    const industries = sanitizeInput(userProfile?.industries || 'Technology, Finance');
+    const bio = sanitizeInput(userProfile?.bio || '', 300);
+    const roleKeywords = targetRole.split(/[\/\s,]+/).filter((k: string) => k.length > 2).slice(0, 5);
 
-    // NORMALIZE region names from frontend to backend format
-    const normalizedRegionNames: string[] = regions.map((r: string) => normalizeRegionName(r));
-    console.log('📍 Normalized regions:', normalizedRegionNames);
+    const normalizedRegionNames = regions.map((r: string) => normalizeRegionName(r));
+    const selectedConfigs = normalizedRegionNames.map(r => ({
+      region: r,
+      config: REGION_CONFIGS[r] || REGION_CONFIGS['SEE']
+    }));
 
-    // Get configs for normalized regions
-    const selectedConfigs: { region: string, config: typeof REGION_CONFIGS[string] }[] = [];
-    for (const normalizedRegion of normalizedRegionNames) {
-      const config = REGION_CONFIGS[normalizedRegion];
-      if (config) {
-        selectedConfigs.push({ region: normalizedRegion, config });
-      } else {
-        // Fallback: try partial match
-        for (const [key, cfg] of Object.entries(REGION_CONFIGS)) {
-          if (normalizedRegion.toLowerCase().includes(key.toLowerCase()) || 
-              key.toLowerCase().includes(normalizedRegion.toLowerCase().split(' ')[0])) {
-            selectedConfigs.push({ region: key, config: cfg });
-            break;
-          }
-        }
-      }
-    }
-
-    if (selectedConfigs.length === 0) {
-      console.log('⚠️ No valid regions found, defaulting to SEE');
-      selectedConfigs.push({ region: 'SEE', config: REGION_CONFIGS['SEE'] });
-    }
-    
-    console.log('✅ Selected configs for regions:', selectedConfigs.map(c => c.region))
-
-    const allOpportunities: VerifiedOpportunity[] = [];
-    const searchStats = { 
-      adzunaResults: 0,
-      jsearchResults: 0,
-      arbeitnowResults: 0,
-      remotiveResults: 0,
-      themuseResults: 0,
-      firecrawlResults: 0,
-      aiGenerated: 0,
-      totalReturned: 0,
-      apiErrors: [] as string[]
+    const searchStats = {
+      adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0, ai: 0,
+      errors: [] as string[], totalRaw: 0, afterFilter: 0
     };
 
-    // PHASE 1: Adzuna API (Real verified job listings)
+    // ===== PARALLEL API FETCHING =====
+    const perSourceLimit = Math.ceil(maxResults / 5);
+    
+    const apiPromises = [];
+
+    // Adzuna
     if (ADZUNA_APP_ID && ADZUNA_API_KEY) {
-      console.log('📡 Phase 1: Fetching from Adzuna API...');
-      try {
-        const adzunaJobs = await fetchFromAdzuna(
-          selectedConfigs.map(c => c.region),
-          roleKeywords,
-          ADZUNA_APP_ID,
-          ADZUNA_API_KEY,
-          Math.ceil(maxResults / 4)
-        );
-        allOpportunities.push(...adzunaJobs);
-        searchStats.adzunaResults = adzunaJobs.length;
-        console.log(`✅ Adzuna: ${adzunaJobs.length} opportunities`);
-      } catch (error) {
-        console.error('❌ Adzuna API error:', error);
-        searchStats.apiErrors.push('Adzuna: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      }
+      apiPromises.push(
+        fetchFromAdzuna(normalizedRegionNames, roleKeywords, ADZUNA_APP_ID, ADZUNA_API_KEY, perSourceLimit)
+          .then(jobs => { searchStats.adzuna = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`Adzuna: ${e.message}`); return []; })
+      );
     }
 
-    // PHASE 2: JSearch (RapidAPI) - LinkedIn, Indeed, Glassdoor aggregator
+    // JSearch
     if (RAPIDAPI_KEY) {
-      console.log('📡 Phase 2: Fetching from JSearch (RapidAPI)...');
-      try {
-        const jsearchJobs = await fetchFromJSearch(
-          selectedConfigs.map(c => c.region),
-          roleKeywords,
-          RAPIDAPI_KEY,
-          Math.ceil(maxResults / 4)
-        );
-        allOpportunities.push(...jsearchJobs);
-        searchStats.jsearchResults = jsearchJobs.length;
-        console.log(`✅ JSearch: ${jsearchJobs.length} opportunities`);
-      } catch (error) {
-        console.error('❌ JSearch API error:', error);
-        searchStats.apiErrors.push('JSearch: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      }
-    }
-
-    // PHASE 3: Arbeitnow API (Free, no key required - European focus)
-    console.log('📡 Phase 3: Fetching from Arbeitnow (Free API)...');
-    try {
-      const arbeitnowJobs = await fetchFromArbeitnow(
-        selectedConfigs,
-        roleKeywords,
-        Math.ceil(maxResults / 3) // Increased limit
+      apiPromises.push(
+        fetchFromJSearch(normalizedRegionNames, roleKeywords, RAPIDAPI_KEY, perSourceLimit)
+          .then(jobs => { searchStats.jsearch = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`JSearch: ${e.message}`); return []; })
       );
-      allOpportunities.push(...arbeitnowJobs);
-      searchStats.arbeitnowResults = arbeitnowJobs.length;
-      console.log(`✅ Arbeitnow: ${arbeitnowJobs.length} opportunities`);
-    } catch (error) {
-      console.error('❌ Arbeitnow API error:', error);
-      searchStats.apiErrors.push('Arbeitnow: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
-    // PHASE 4: Remotive API (Free, no key required - Remote jobs focus)
-    console.log('📡 Phase 4: Fetching from Remotive (Free API)...');
-    try {
-      const remotiveJobs = await fetchFromRemotive(
-        roleKeywords,
-        Math.ceil(maxResults / 3) // Increased limit
-      );
-      allOpportunities.push(...remotiveJobs);
-      searchStats.remotiveResults = remotiveJobs.length;
-      console.log(`✅ Remotive: ${remotiveJobs.length} opportunities`);
-    } catch (error) {
-      console.error('❌ Remotive API error:', error);
-      searchStats.apiErrors.push('Remotive: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-
-    // PHASE 5: The Muse API (Free tier available)
-    console.log('📡 Phase 5: Fetching from The Muse...');
-    try {
-      const museJobs = await fetchFromTheMuse(
-        selectedConfigs.map(c => c.region),
-        Math.ceil(maxResults / 6)
-      );
-      allOpportunities.push(...museJobs);
-      searchStats.themuseResults = museJobs.length;
-      console.log(`✅ The Muse: ${museJobs.length} opportunities`);
-    } catch (error) {
-      console.error('❌ The Muse API error:', error);
-      searchStats.apiErrors.push('TheMuse: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-
-    // PHASE 6: LinkedIn Direct Scraping via Firecrawl with Lovable AI fallback
-    console.log('📡 Phase 6: Fetching directly from LinkedIn...');
-    try {
-      const linkedinResult = await fetchFromLinkedIn(
-        selectedConfigs.map(c => c.region),
-        roleKeywords,
-        FIRECRAWL_API_KEY || '',
-        LOVABLE_API_KEY || '',
-        Math.ceil(maxResults / 4)
-      );
-      allOpportunities.push(...linkedinResult.opportunities);
-      searchStats.firecrawlResults = linkedinResult.opportunities.length;
-      console.log(`✅ LinkedIn: ${linkedinResult.opportunities.length} opportunities${linkedinResult.firecrawlFailed ? ' (via AI fallback)' : ''}`);
-    } catch (error) {
-      console.error('⚠️ LinkedIn scraping error:', error);
-      searchStats.apiErrors.push('LinkedIn: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-
-    // PHASE 7: AI-generated opportunities to fill gaps
-    // For regions with limited API coverage (like SEE), generate more AI opportunities
-    const realJobsCount = allOpportunities.length;
-    const hasLimitedAPICoverage = selectedConfigs.some(c => 
-      ['SEE', 'Eastern Europe', 'Baltics', 'Africa', 'Latin America', 'Middle East'].includes(c.region)
+    // Arbeitnow (free)
+    apiPromises.push(
+      fetchFromArbeitnow(selectedConfigs, roleKeywords, perSourceLimit)
+        .then(jobs => { searchStats.arbeitnow = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`Arbeitnow: ${e.message}`); return []; })
     );
-    const aiThreshold = hasLimitedAPICoverage ? maxResults / 2 : maxResults / 3;
-    
-    if (realJobsCount < aiThreshold) {
-      console.log('🤖 Phase 7: Generating AI market analysis opportunities...');
-      console.log(`  Real jobs: ${realJobsCount}, threshold: ${aiThreshold}, generating AI opportunities...`);
-      try {
-        const aiOpportunities = await generateAIOpportunities(
-          selectedConfigs,
-          targetRole,
-          industries,
-          bio,
-          LOVABLE_API_KEY,
-          Math.min(150, maxResults - realJobsCount) // Generate more AI opportunities
-        );
-        allOpportunities.push(...aiOpportunities);
-        searchStats.aiGenerated = aiOpportunities.length;
-        console.log(`✅ AI Generated: ${aiOpportunities.length} opportunities`);
-      } catch (error) {
-        console.error('❌ AI generation error:', error);
-      }
-    }
 
-    // PHASE 8: STRICT REGION FILTERING - Remove jobs from wrong regions
-    console.log('🌍 Phase 8: Applying strict region filtering...');
-    const regionFilteredOpportunities = allOpportunities.filter(opp => {
-      // AI-generated jobs are already region-specific
-      if (opp.data_quality === 'ai_generated') return true;
-      
-      // For scraped/verified jobs, check if location matches selected regions
-      return jobMatchesRegion(opp, selectedConfigs.map(c => c.region));
-    });
-    
-    const filteredOutCount = allOpportunities.length - regionFilteredOpportunities.length;
-    console.log(`🚫 Filtered out ${filteredOutCount} jobs from non-matching regions`);
+    // Remotive (free)
+    apiPromises.push(
+      fetchFromRemotive(roleKeywords, perSourceLimit)
+        .then(jobs => { searchStats.remotive = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`Remotive: ${e.message}`); return []; })
+    );
 
-    // PHASE 9: Apply industry filter if specified
-    let industryFilteredOpps = regionFilteredOpportunities;
+    // The Muse (free)
+    apiPromises.push(
+      fetchFromTheMuse(normalizedRegionNames, perSourceLimit)
+        .then(jobs => { searchStats.themuse = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`TheMuse: ${e.message}`); return []; })
+    );
+
+    // LinkedIn via Firecrawl or AI fallback
+    apiPromises.push(
+      fetchFromLinkedIn(normalizedRegionNames, roleKeywords, FIRECRAWL_API_KEY || '', LOVABLE_API_KEY, perSourceLimit)
+        .then(result => { searchStats.linkedin = result.opportunities.length; return result.opportunities; })
+        .catch(e => { searchStats.errors.push(`LinkedIn: ${e.message}`); return []; })
+    );
+
+    // Execute all in parallel
+    const results = await Promise.all(apiPromises);
+    const allOpportunities = results.flat();
+    searchStats.totalRaw = allOpportunities.length;
+    
+    console.log(`📊 Raw results: ${searchStats.totalRaw}`);
+
+    // ===== FILTERING =====
+    let filtered = allOpportunities.filter(opp => 
+      opp.data_quality === 'ai_generated' || jobMatchesRegion(opp, normalizedRegionNames)
+    );
+
     if (industryFilter && industryFilter !== 'all') {
-      const industryLower = industryFilter.toLowerCase();
-      industryFilteredOpps = regionFilteredOpportunities.filter(opp => {
-        const descLower = (opp.description || '').toLowerCase();
-        const titleLower = (opp.title || '').toLowerCase();
-        const companyLower = (opp.company || '').toLowerCase();
-        return descLower.includes(industryLower) || 
-               titleLower.includes(industryLower) || 
-               companyLower.includes(industryLower) ||
-               opp.industry?.toLowerCase().includes(industryLower);
-      });
-      console.log(`🏭 Industry filter "${industryFilter}": ${industryFilteredOpps.length} jobs`);
+      const lower = industryFilter.toLowerCase();
+      filtered = filtered.filter(opp => 
+        (opp.description || '').toLowerCase().includes(lower) ||
+        (opp.title || '').toLowerCase().includes(lower) ||
+        (opp.company || '').toLowerCase().includes(lower)
+      );
     }
 
-    // PHASE 10: Apply experience level filter if specified
-    let experienceFilteredOpps = industryFilteredOpps;
     if (experienceLevelFilter && experienceLevelFilter !== 'all') {
-      const levelConfig = EXPERIENCE_LEVELS.find(l => l.id === experienceLevelFilter);
-      if (levelConfig) {
-        experienceFilteredOpps = industryFilteredOpps.filter(opp => {
-          const titleLower = (opp.title || '').toLowerCase();
-          return levelConfig.keywords.some(kw => titleLower.includes(kw));
-        });
-        console.log(`📊 Experience filter "${experienceLevelFilter}": ${experienceFilteredOpps.length} jobs`);
+      const level = EXPERIENCE_LEVELS.find(l => l.id === experienceLevelFilter);
+      if (level) {
+        filtered = filtered.filter(opp =>
+          level.keywords.some(kw => (opp.title || '').toLowerCase().includes(kw))
+        );
       }
     }
 
-    // PHASE 11: Score all opportunities with AI
-    console.log('🎯 Phase 11: Calculating match scores...');
-    const scoredOpportunities = await scoreOpportunities(
-      experienceFilteredOpps,
-      targetRole,
-      industries,
-      bio,
-      LOVABLE_API_KEY
-    );
+    // ===== AI SUPPLEMENTATION =====
+    if (filtered.length < maxResults / 2) {
+      console.log('🤖 Generating AI opportunities...');
+      try {
+        const aiJobs = await generateAIOpportunities(
+          selectedConfigs, targetRole, industries, bio, LOVABLE_API_KEY,
+          Math.min(200, maxResults - filtered.length)
+        );
+        filtered.push(...aiJobs);
+        searchStats.ai = aiJobs.length;
+      } catch (e) {
+        searchStats.errors.push(`AI: ${e instanceof Error ? e.message : 'Error'}`);
+      }
+    }
 
-    // Sort by match score and data quality
-    scoredOpportunities.sort((a, b) => {
-      const aQuality = a.data_quality === 'verified' ? 3 : a.data_quality === 'scraped' ? 2 : 1;
-      const bQuality = b.data_quality === 'verified' ? 3 : b.data_quality === 'scraped' ? 2 : 1;
-      if (aQuality !== bQuality) return bQuality - aQuality;
+    // ===== SCORING =====
+    const scored = await scoreOpportunities(filtered, targetRole, industries, bio, LOVABLE_API_KEY);
+    
+    // Sort by quality then score
+    scored.sort((a, b) => {
+      const qA = a.data_quality === 'verified' ? 3 : a.data_quality === 'scraped' ? 2 : 1;
+      const qB = b.data_quality === 'verified' ? 3 : b.data_quality === 'scraped' ? 2 : 1;
+      if (qA !== qB) return qB - qA;
       return (b.match_score || 0) - (a.match_score || 0);
     });
 
-    // Deduplicate by company + title
+    // Deduplicate
     const seen = new Set<string>();
-    const uniqueOpportunities = scoredOpportunities.filter(opp => {
+    const unique = scored.filter(opp => {
       const key = `${opp.company?.toLowerCase()}-${opp.title?.toLowerCase()}`.replace(/\s+/g, '');
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    searchStats.totalReturned = uniqueOpportunities.length;
-    
-    console.log(`📈 Total unique opportunities after all filters: ${uniqueOpportunities.length}`);
-    console.log('📊 Stats:', searchStats);
+    searchStats.afterFilter = unique.length;
+    console.log(`✅ Final: ${unique.length} opportunities`);
 
     return new Response(
-      JSON.stringify({ 
-        opportunities: uniqueOpportunities.slice(0, maxResults),
+      JSON.stringify({
+        opportunities: unique.slice(0, maxResults),
         stats: {
-          totalReturned: uniqueOpportunities.length,
+          total: unique.length,
           breakdown: {
-            adzuna: searchStats.adzunaResults,
-            jsearch: searchStats.jsearchResults,
-            arbeitnow: searchStats.arbeitnowResults,
-            remotive: searchStats.remotiveResults,
-            themuse: searchStats.themuseResults,
-            firecrawl: searchStats.firecrawlResults,
-            ai_generated: searchStats.aiGenerated
+            adzuna: searchStats.adzuna, jsearch: searchStats.jsearch,
+            arbeitnow: searchStats.arbeitnow, remotive: searchStats.remotive,
+            themuse: searchStats.themuse, linkedin: searchStats.linkedin, ai: searchStats.ai
           },
-          dataQualityBreakdown: {
-            verified: uniqueOpportunities.filter(o => o.data_quality === 'verified').length,
-            scraped: uniqueOpportunities.filter(o => o.data_quality === 'scraped').length,
-            ai_generated: uniqueOpportunities.filter(o => o.data_quality === 'ai_generated').length
+          quality: {
+            verified: unique.filter(o => o.data_quality === 'verified').length,
+            scraped: unique.filter(o => o.data_quality === 'scraped').length,
+            ai_generated: unique.filter(o => o.data_quality === 'ai_generated').length
           },
-          regionsSearched: selectedConfigs.map(c => c.region),
-          apiErrors: searchStats.apiErrors
+          regions: normalizedRegionNames,
+          errors: searchStats.errors
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error('Error scanning opportunities:', error);
+    console.error('Scan error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -683,1027 +457,359 @@ serve(async (req) => {
   }
 });
 
-// ===== API FETCHING FUNCTIONS =====
-
-// Adzuna API - Real verified job listings
-async function fetchFromAdzuna(
-  regions: string[],
-  keywords: string[],
-  appId: string,
-  apiKey: string,
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
-  const perCountryLimit = Math.ceil(maxResults / 5);
+// ===== API FETCHERS =====
+async function fetchFromAdzuna(regions: string[], keywords: string[], appId: string, apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  const countries = [...new Set(regions.flatMap(r => ADZUNA_COUNTRIES[r] || []))].slice(0, 6);
+  const search = keywords.length > 0 ? keywords.slice(0, 3).join(' OR ') : 'CEO OR Director OR VP';
   
-  // Get all Adzuna countries for selected regions
-  const countries: string[] = [];
-  for (const region of regions) {
-    const regionCountries = ADZUNA_COUNTRIES[region] || [];
-    countries.push(...regionCountries);
-  }
-  
-  // Use unique countries
-  const uniqueCountries = [...new Set(countries)].slice(0, 5);
-  
-  for (const country of uniqueCountries) {
+  for (const country of countries) {
     try {
-      // Search for executive roles
-      const searchTerms = keywords.length > 0 ? keywords.slice(0, 2).join(' OR ') : 'CEO OR Director OR VP';
+      const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=${Math.ceil(max/countries.length)}&what=${encodeURIComponent(search)}&what_or=executive manager director&max_days_old=14&sort_by=date`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
       
-      const url = `https://api.adzuna.com/v1/api/jobs/${country}/search/1?app_id=${appId}&app_key=${apiKey}&results_per_page=${perCountryLimit}&what=${encodeURIComponent(searchTerms)}&what_or=executive manager director&max_days_old=7&sort_by=date`;
-      
-      console.log(`  Adzuna query: ${country} - ${searchTerms.substring(0, 30)}...`);
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        console.log(`  Adzuna ${country}: ${response.status}`);
-        continue;
-      }
-      
-      const data = await response.json();
-      
-      if (data.results && Array.isArray(data.results)) {
-        for (const job of data.results) {
-          // Filter for executive-level positions
-          const isExecutive = EXECUTIVE_TITLES.some(title => 
-            job.title?.toLowerCase().includes(title.toLowerCase())
-          );
-          
-          if (!isExecutive && !job.title?.toLowerCase().includes('senior')) continue;
-          
-          opportunities.push({
-            id: `adzuna-${job.id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            title: job.title || 'Executive Position',
-            company: job.company?.display_name || 'Company',
-            location: job.location?.display_name || country.toUpperCase(),
-            salary_range: job.salary_min && job.salary_max 
-              ? `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()}` 
-              : 'Competitive',
-            status: 'New',
-            source: 'Adzuna',
-            posted_date: job.created ? new Date(job.created).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            description: job.description || '',
-            match_score: 0,
-            url: job.redirect_url || `https://adzuna.com`,
-            verified: true,
-            verification_score: 90,
-            data_quality: 'verified',
-            source_reliability: 'high',
-            scraped_at: new Date().toISOString()
-          });
-        }
-      }
-      
-      // Small delay between requests
-      await new Promise(r => setTimeout(r, 200));
-      
-    } catch (error) {
-      console.error(`Adzuna ${country} error:`, error);
-    }
-  }
-  
-  return opportunities;
-}
-
-// JSearch (RapidAPI) - LinkedIn, Indeed, Glassdoor aggregator
-async function fetchFromJSearch(
-  regions: string[],
-  keywords: string[],
-  rapidApiKey: string,
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
-  const perQueryLimit = Math.ceil(maxResults / 6);
-  
-  // Build location queries
-  const locations: string[] = [];
-  for (const region of regions) {
-    const regionLocations = JSEARCH_LOCATIONS[region] || [];
-    locations.push(...regionLocations.slice(0, 2));
-  }
-  
-  // Build search queries combining keywords with locations
-  const searchKeywords = keywords.length > 0 ? keywords.slice(0, 2) : ['CEO', 'Director'];
-  
-  for (const location of locations.slice(0, 4)) {
-    for (const keyword of searchKeywords.slice(0, 2)) {
-      try {
-        const query = `${keyword} executive`;
-        
-        console.log(`  JSearch query: ${query} in ${location}`);
-        
-        const response = await fetch(
-          `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&num_pages=1&date_posted=week&remote_jobs_only=false`,
-          {
-            headers: {
-              'X-RapidAPI-Key': rapidApiKey,
-              'X-RapidAPI-Host': 'jsearch.p.rapidapi.com'
-            }
-          }
-        );
-        
-        if (!response.ok) {
-          if (response.status === 429) {
-            console.log('  JSearch rate limited, pausing...');
-            await new Promise(r => setTimeout(r, 2000));
-            continue;
-          }
-          console.log(`  JSearch error: ${response.status}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        
-        if (data.data && Array.isArray(data.data)) {
-          for (const job of data.data.slice(0, perQueryLimit)) {
-            // Filter for executive-level positions
-            const isExecutive = EXECUTIVE_TITLES.some(title => 
-              job.job_title?.toLowerCase().includes(title.toLowerCase())
-            );
-            
-            if (!isExecutive) continue;
-            
-            opportunities.push({
-              id: `jsearch-${job.job_id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-              title: job.job_title || 'Executive Position',
-              company: job.employer_name || 'Company',
-              location: `${job.job_city || ''}, ${job.job_country || ''}`.replace(/^, |, $/g, '') || location,
-              salary_range: job.job_min_salary && job.job_max_salary 
-                ? `${job.job_salary_currency || '$'}${job.job_min_salary.toLocaleString()} - ${job.job_max_salary.toLocaleString()}` 
-                : 'Competitive',
-              status: 'New',
-              source: job.job_publisher || 'JSearch',
-              posted_date: job.job_posted_at_datetime_utc 
-                ? new Date(job.job_posted_at_datetime_utc).toISOString().split('T')[0] 
-                : new Date().toISOString().split('T')[0],
-              description: job.job_description?.substring(0, 1500) || '',
-              match_score: 0,
-              url: job.job_apply_link || job.job_google_link || 'https://linkedin.com/jobs',
-              verified: true,
-              verification_score: 95,
-              data_quality: 'verified',
-              source_reliability: 'high',
-              scraped_at: new Date().toISOString()
-            });
-          }
-        }
-        
-        // Rate limiting
-        await new Promise(r => setTimeout(r, 500));
-        
-      } catch (error) {
-        console.error(`JSearch error:`, error);
-      }
-    }
-  }
-  
-  return opportunities;
-}
-
-// Arbeitnow API - Free European job board
-async function fetchFromArbeitnow(
-  configs: { region: string, config: typeof REGION_CONFIGS[string] }[],
-  keywords: string[],
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
-  
-  try {
-    // Arbeitnow has limited filtering - fetch all and filter
-    const response = await fetch('https://www.arbeitnow.com/api/job-board-api');
-    
-    if (!response.ok) {
-      console.log(`Arbeitnow: ${response.status}`);
-      return [];
-    }
-    
-    const data = await response.json();
-    
-    if (data.data && Array.isArray(data.data)) {
-      // Filter for executive/senior positions (broader filter)
-      const executiveJobs = data.data.filter((job: any) => {
-        const title = job.title?.toLowerCase() || '';
-        return EXECUTIVE_TITLES.some(t => title.includes(t.toLowerCase())) ||
-               title.includes('senior') || title.includes('lead') || 
-               title.includes('head') || title.includes('manager');
-      });
-      
-      // Get region locations for filtering
-      const regionLocations = configs.flatMap(c => c.config.locations.map(l => l.toLowerCase()));
-      
-      for (const job of executiveJobs.slice(0, maxResults * 2)) { // Take more, filter later
-        const jobLocation = job.location?.toLowerCase() || '';
-        
-        // Check if job location matches selected regions
-        const matchesRegion = regionLocations.some(loc => 
-          jobLocation.includes(loc) || loc.includes(jobLocation.split(',')[0])
-        );
-        
-        // Check if it's remote
-        const isRemote = job.remote || jobLocation.includes('remote') || jobLocation.includes('worldwide');
-        
-        // Check if it's European (for European region searches)
-        const isEuropean = jobLocation.includes('europe') || jobLocation.includes('eu') || jobLocation.includes('emea');
-        
-        // Include if matches region OR if it's remote OR if it's European
-        if (!matchesRegion && !isRemote && !isEuropean) continue;
-        
-        opportunities.push({
-          id: `arbeitnow-${job.slug || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      const data = await res.json();
+      for (const job of (data.results || [])) {
+        if (!isExecutiveTitle(job.title || '')) continue;
+        opps.push({
+          id: `adzuna-${job.id}-${Date.now()}`,
           title: job.title || 'Executive Position',
-          company: job.company_name || 'Company',
-          location: job.remote ? `${job.location || 'Europe'} (Remote)` : (job.location || 'Europe'),
-          salary_range: 'Competitive',
-          status: 'New',
-          source: 'Arbeitnow',
-          posted_date: job.created_at ? new Date(job.created_at * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          description: job.description?.substring(0, 1500) || '',
-          match_score: 0,
-          url: job.url || 'https://arbeitnow.com',
-          verified: true,
-          verification_score: 85,
-          data_quality: 'verified',
-          source_reliability: 'high',
+          company: job.company?.display_name || 'Company',
+          location: job.location?.display_name || country.toUpperCase(),
+          salary_range: job.salary_min && job.salary_max ? `${job.salary_min.toLocaleString()} - ${job.salary_max.toLocaleString()}` : 'Competitive',
+          status: 'New', source: 'Adzuna',
+          posted_date: job.created ? new Date(job.created).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          description: (job.description || '').substring(0, 1500),
+          match_score: 0, url: job.redirect_url || 'https://adzuna.com',
+          verified: true, verification_score: 90,
+          data_quality: 'verified', source_reliability: 'high',
           scraped_at: new Date().toISOString()
         });
       }
+      await new Promise(r => setTimeout(r, 150));
+    } catch (e) {
+      console.error(`Adzuna ${country}:`, e);
     }
-  } catch (error) {
-    console.error('Arbeitnow error:', error);
   }
-  
-  return opportunities;
+  return opps;
 }
 
-// Remotive API - Free remote jobs API
-async function fetchFromRemotive(
-  keywords: string[],
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
+async function fetchFromJSearch(regions: string[], keywords: string[], rapidApiKey: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  const locations = [...new Set(regions.flatMap(r => (JSEARCH_LOCATIONS[r] || []).slice(0, 3)))].slice(0, 8);
+  const searchKws = keywords.length > 0 ? keywords.slice(0, 2) : ['CEO', 'Director'];
   
-  try {
-    // Fetch more jobs from Remotive (they have a limit of 100+ jobs)
-    const response = await fetch('https://remotive.com/api/remote-jobs?limit=500');
-    
-    if (!response.ok) {
-      console.log(`Remotive: ${response.status}`);
-      return [];
+  for (const location of locations) {
+    for (const keyword of searchKws) {
+      try {
+        const res = await fetch(
+          `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(keyword + ' executive ' + location)}&page=1&num_pages=2&date_posted=week&remote_jobs_only=false`,
+          { headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'jsearch.p.rapidapi.com' } }
+        );
+        if (res.status === 429) { await new Promise(r => setTimeout(r, 2000)); continue; }
+        if (!res.ok) continue;
+        
+        const data = await res.json();
+        for (const job of (data.data || []).slice(0, Math.ceil(max / locations.length / searchKws.length))) {
+          if (!isExecutiveTitle(job.job_title || '')) continue;
+          opps.push({
+            id: `jsearch-${job.job_id}-${Date.now()}`,
+            title: job.job_title || 'Executive Position',
+            company: job.employer_name || 'Company',
+            location: `${job.job_city || ''}, ${job.job_country || ''}`.replace(/^, |, $/g, '') || location,
+            salary_range: job.job_min_salary && job.job_max_salary ? `${job.job_salary_currency || '$'}${job.job_min_salary.toLocaleString()} - ${job.job_max_salary.toLocaleString()}` : 'Competitive',
+            status: 'New', source: job.job_publisher || 'JSearch',
+            posted_date: job.job_posted_at_datetime_utc ? new Date(job.job_posted_at_datetime_utc).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            description: (job.job_description || '').substring(0, 1500),
+            match_score: 0, url: job.job_apply_link || job.job_google_link || 'https://linkedin.com/jobs',
+            verified: true, verification_score: 95,
+            data_quality: 'verified', source_reliability: 'high',
+            scraped_at: new Date().toISOString()
+          });
+        }
+        await new Promise(r => setTimeout(r, 300));
+      } catch (e) {
+        console.error('JSearch:', e);
+      }
     }
+  }
+  return opps;
+}
+
+async function fetchFromArbeitnow(configs: { region: string; config: typeof REGION_CONFIGS[string] }[], keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const res = await fetch('https://www.arbeitnow.com/api/job-board-api');
+    if (!res.ok) return [];
+    const data = await res.json();
     
-    const data = await response.json();
-    
-    if (data.jobs && Array.isArray(data.jobs)) {
-      // Filter for executive/senior positions
-      const executiveJobs = data.jobs.filter((job: any) => {
-        const title = job.title?.toLowerCase() || '';
-        return EXECUTIVE_TITLES.some(t => title.includes(t.toLowerCase())) ||
-               title.includes('senior') || title.includes('lead') || title.includes('head');
+    const regionLocs = configs.flatMap(c => c.config.locations.map(l => l.toLowerCase()));
+    for (const job of (data.data || []).filter((j: any) => isExecutiveTitle(j.title || '') || (j.title || '').toLowerCase().includes('senior')).slice(0, max * 2)) {
+      const loc = (job.location || '').toLowerCase();
+      const matches = regionLocs.some(l => loc.includes(l)) || job.remote || loc.includes('europe') || loc.includes('remote');
+      if (!matches) continue;
+      opps.push({
+        id: `arbeitnow-${job.slug}-${Date.now()}`,
+        title: job.title || 'Position',
+        company: job.company_name || 'Company',
+        location: job.remote ? `${job.location || 'Europe'} (Remote)` : (job.location || 'Europe'),
+        salary_range: 'Competitive', status: 'New', source: 'Arbeitnow',
+        posted_date: job.created_at ? new Date(job.created_at * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.description || '').substring(0, 1500),
+        match_score: 0, url: job.url || 'https://arbeitnow.com',
+        verified: true, verification_score: 85,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString()
       });
-      
-      for (const job of executiveJobs.slice(0, maxResults)) {
-        opportunities.push({
-          id: `remotive-${job.id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-          title: job.title || 'Executive Position',
-          company: job.company_name || 'Company',
-          location: job.candidate_required_location || 'Remote',
-          salary_range: job.salary || 'Competitive',
-          status: 'New',
-          source: 'Remotive',
+    }
+  } catch (e) { console.error('Arbeitnow:', e); }
+  return opps.slice(0, max);
+}
+
+async function fetchFromRemotive(keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const res = await fetch('https://remotive.com/api/remote-jobs?limit=500');
+    if (!res.ok) return [];
+    const data = await res.json();
+    for (const job of (data.jobs || []).filter((j: any) => isExecutiveTitle(j.title || '') || (j.title || '').toLowerCase().includes('senior') || (j.title || '').toLowerCase().includes('lead')).slice(0, max)) {
+      opps.push({
+        id: `remotive-${job.id}-${Date.now()}`,
+        title: job.title || 'Position',
+        company: job.company_name || 'Company',
+        location: job.candidate_required_location || 'Remote',
+        salary_range: job.salary || 'Competitive', status: 'New', source: 'Remotive',
+        posted_date: job.publication_date ? new Date(job.publication_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.description || '').substring(0, 1500),
+        match_score: 0, url: job.url || 'https://remotive.com',
+        verified: true, verification_score: 80,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString()
+      });
+    }
+  } catch (e) { console.error('Remotive:', e); }
+  return opps;
+}
+
+async function fetchFromTheMuse(regions: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    for (const level of ['Senior Level', 'Management', 'Executive']) {
+      const res = await fetch(`https://www.themuse.com/api/public/jobs?page=1&level=${encodeURIComponent(level)}&descending=true`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const job of (data.results || []).filter((j: any) => isExecutiveTitle(j.name || '') || level === 'Executive').slice(0, Math.ceil(max / 3))) {
+        opps.push({
+          id: `muse-${job.id}-${Date.now()}`,
+          title: job.name || 'Position',
+          company: job.company?.name || 'Company',
+          location: job.locations?.map((l: any) => l.name).join(', ') || 'USA',
+          salary_range: 'Competitive', status: 'New', source: 'The Muse',
           posted_date: job.publication_date ? new Date(job.publication_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          description: job.description?.substring(0, 1500) || '',
-          match_score: 0,
-          url: job.url || 'https://remotive.com',
-          verified: true,
-          verification_score: 80,
-          data_quality: 'verified',
-          source_reliability: 'high',
+          description: (job.contents || '').substring(0, 1500),
+          match_score: 0, url: job.refs?.landing_page || `https://themuse.com/jobs/${job.id}`,
+          verified: true, verification_score: 85,
+          data_quality: 'verified', source_reliability: 'high',
           scraped_at: new Date().toISOString()
         });
       }
+      await new Promise(r => setTimeout(r, 200));
     }
-  } catch (error) {
-    console.error('Remotive error:', error);
-  }
-  
-  return opportunities;
+  } catch (e) { console.error('TheMuse:', e); }
+  return opps.slice(0, max);
 }
 
-// The Muse API - Free tier available
-async function fetchFromTheMuse(
-  regions: string[],
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
-  const perPageLimit = Math.min(20, maxResults);
+async function fetchFromLinkedIn(regions: string[], keywords: string[], firecrawlKey: string, lovableKey: string, max: number): Promise<{ opportunities: VerifiedOpportunity[]; firecrawlFailed: boolean }> {
+  const opps: VerifiedOpportunity[] = [];
+  let failed = !firecrawlKey;
   
-  try {
-    // Build location parameter
-    const museLocations: string[] = [];
-    for (const region of regions) {
-      const locs = MUSE_LOCATIONS[region] || [];
-      museLocations.push(...locs.slice(0, 2));
-    }
-    
-    // The Muse has executive level filter
-    const levels = ['Senior Level', 'Management', 'Executive'];
-    
-    for (const level of levels) {
-      const url = `https://www.themuse.com/api/public/jobs?page=1&level=${encodeURIComponent(level)}&descending=true`;
-      
-      console.log(`  TheMuse query: ${level}`);
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        console.log(`  TheMuse: ${response.status}`);
-        continue;
-      }
-      
-      const data = await response.json();
-      
-      if (data.results && Array.isArray(data.results)) {
-        for (const job of data.results.slice(0, perPageLimit)) {
-          // Check if executive-level
-          const isExecutive = EXECUTIVE_TITLES.some(title => 
-            job.name?.toLowerCase().includes(title.toLowerCase())
-          );
-          
-          if (!isExecutive && level !== 'Executive') continue;
-          
-          // Get location
-          const locations = job.locations?.map((l: any) => l.name).join(', ') || 'USA';
-          
-          opportunities.push({
-            id: `muse-${job.id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            title: job.name || 'Executive Position',
-            company: job.company?.name || 'Company',
-            location: locations,
-            salary_range: 'Competitive',
-            status: 'New',
-            source: 'The Muse',
-            posted_date: job.publication_date ? new Date(job.publication_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            description: job.contents?.substring(0, 1500) || '',
-            match_score: 0,
-            url: job.refs?.landing_page || `https://themuse.com/jobs/${job.id}`,
-            verified: true,
-            verification_score: 85,
-            data_quality: 'verified',
-            source_reliability: 'high',
-            scraped_at: new Date().toISOString()
-          });
-        }
-      }
-      
-      await new Promise(r => setTimeout(r, 300));
-    }
-  } catch (error) {
-    console.error('TheMuse error:', error);
-  }
+  const geoIds = [...new Map(regions.flatMap(r => LINKEDIN_GEOID_MAP[r] || LINKEDIN_GEOID_MAP['Europe'] || []).map(g => [g.geoId, g])).values()].slice(0, 5);
   
-  return opportunities;
-}
-
-// LinkedIn Direct Scraping via Firecrawl - Region specific
-const LINKEDIN_GEOID_MAP: Record<string, { geoId: string; name: string }[]> = {
-  'SEE': [
-    { geoId: '104688944', name: 'Croatia' },
-    { geoId: '101855366', name: 'Serbia' },
-    { geoId: '101727083', name: 'Slovenia' },
-    { geoId: '100994331', name: 'Bosnia and Herzegovina' },
-    { geoId: '105149290', name: 'North Macedonia' },
-    { geoId: '101683237', name: 'Montenegro' },
-    { geoId: '102845717', name: 'Albania' },
-    { geoId: '101728083', name: 'Kosovo' },
-    { geoId: '91000007', name: 'Southeast Europe' }
-  ],
-  'DACH': [
-    { geoId: '101282230', name: 'Germany' },
-    { geoId: '103883259', name: 'Austria' },
-    { geoId: '106693272', name: 'Switzerland' }
-  ],
-  'Nordics': [
-    { geoId: '105117694', name: 'Sweden' },
-    { geoId: '103819153', name: 'Norway' },
-    { geoId: '104514075', name: 'Denmark' },
-    { geoId: '100456013', name: 'Finland' }
-  ],
-  'UK': [
-    { geoId: '101165590', name: 'United Kingdom' },
-    { geoId: '104738515', name: 'Ireland' }
-  ],
-  'North America': [
-    { geoId: '103644278', name: 'United States' },
-    { geoId: '101174742', name: 'Canada' }
-  ],
-  'Middle East': [
-    { geoId: '104305776', name: 'United Arab Emirates' },
-    { geoId: '100459316', name: 'Saudi Arabia' },
-    { geoId: '104396105', name: 'Israel' },
-    { geoId: '103495196', name: 'Qatar' }
-  ],
-  'Asia': [
-    { geoId: '102454443', name: 'Singapore' },
-    { geoId: '103291313', name: 'Hong Kong' },
-    { geoId: '101355337', name: 'Japan' },
-    { geoId: '102713980', name: 'India' }
-  ],
-  'Oceania': [
-    { geoId: '101452733', name: 'Australia' },
-    { geoId: '105490917', name: 'New Zealand' }
-  ],
-  'Eastern Europe': [
-    { geoId: '105072130', name: 'Poland' },
-    { geoId: '104508036', name: 'Czech Republic' },
-    { geoId: '100288700', name: 'Hungary' },
-    { geoId: '106670623', name: 'Romania' },
-    { geoId: '105333783', name: 'Bulgaria' }
-  ],
-  'Europe': [
-    { geoId: '91000000', name: 'European Union' },
-    { geoId: '91000007', name: 'Europe' }
-  ]
-};
-
-async function fetchFromLinkedIn(
-  regions: string[],
-  keywords: string[],
-  firecrawlKey: string,
-  lovableApiKey: string,
-  maxResults: number
-): Promise<{ opportunities: VerifiedOpportunity[]; firecrawlFailed: boolean }> {
-  const opportunities: VerifiedOpportunity[] = [];
-  let firecrawlFailed = false;
-  
-  // Get geoIds for all selected regions
-  const geoIds: { geoId: string; name: string }[] = [];
-  for (const region of regions) {
-    const regionGeoIds = LINKEDIN_GEOID_MAP[region] || LINKEDIN_GEOID_MAP['Europe'] || [];
-    geoIds.push(...regionGeoIds);
-  }
-  
-  // Deduplicate geoIds
-  const uniqueGeoIds = [...new Map(geoIds.map(g => [g.geoId, g])).values()].slice(0, 5);
-  
-  console.log(`  LinkedIn: Searching in ${uniqueGeoIds.length} regions: ${uniqueGeoIds.map(g => g.name).join(', ')}`);
-  
-  // Try Firecrawl first
   if (firecrawlKey) {
-    for (const geo of uniqueGeoIds) {
+    for (const geo of geoIds) {
       try {
-        const keywordQuery = keywords.length > 0 
-          ? keywords.slice(0, 2).join(' OR ') 
-          : 'CEO OR CFO OR CTO OR Director OR VP';
+        const kw = keywords.slice(0, 2).join(' OR ') || 'CEO OR Director';
+        const url = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(kw)}&f_E=5%2C6&f_TPR=r604800&geoId=${geo.geoId}`;
         
-        const linkedInUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(keywordQuery)}&f_E=5%2C6&f_TPR=r604800&geoId=${geo.geoId}&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true`;
-        
-        console.log(`  LinkedIn scraping ${geo.name}: ${keywordQuery.substring(0, 30)}...`);
-        
-        const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${firecrawlKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: linkedInUrl,
-            formats: ['markdown', 'links'],
-            onlyMainContent: true,
-            waitFor: 3000
-          }),
+          headers: { 'Authorization': `Bearer ${firecrawlKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, formats: ['markdown', 'links'], onlyMainContent: true, waitFor: 3000 })
         });
         
-        if (response.status === 402 || response.status === 429) {
-          console.log('  LinkedIn: Firecrawl rate limited - switching to Lovable AI fallback');
-          firecrawlFailed = true;
-          break;
-        }
+        if (res.status === 402 || res.status === 429) { failed = true; break; }
+        if (!res.ok) continue;
         
-        if (!response.ok) {
-          console.log(`  LinkedIn ${geo.name}: ${response.status}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        const markdown = data.data?.markdown || '';
+        const data = await res.json();
+        const md = data.data?.markdown || '';
         const links = data.data?.links || [];
         
-        const parsedJobs = parseLinkedInMarkdown(markdown, links, geo.name);
-        opportunities.push(...parsedJobs);
-        
-        console.log(`  LinkedIn ${geo.name}: Found ${parsedJobs.length} jobs`);
-        await new Promise(r => setTimeout(r, 2000));
-        
-      } catch (error) {
-        console.error(`  LinkedIn ${geo.name} error:`, error);
-      }
+        const parsed = parseLinkedInMarkdown(md, links, geo.name);
+        opps.push(...parsed);
+        await new Promise(r => setTimeout(r, 1500));
+      } catch (e) { console.error('LinkedIn Firecrawl:', e); }
     }
-  } else {
-    firecrawlFailed = true;
   }
   
-  // FALLBACK: Use Lovable AI Web Search when Firecrawl fails
-  if (firecrawlFailed && lovableApiKey) {
-    console.log('  LinkedIn: Using Lovable AI fallback for job search...');
-    
-    for (const geo of uniqueGeoIds.slice(0, 3)) {
+  // AI fallback
+  if (failed && lovableKey) {
+    for (const geo of geoIds.slice(0, 3)) {
       try {
-        const searchQuery = `LinkedIn executive jobs ${geo.name} ${keywords[0] || 'CEO'} 2026`;
-        
-        console.log(`  Lovable AI search: ${searchQuery}`);
-        
-        const aiResponse = await fetch('https://api.lovable.dev/v1/ai', {
+        const res = await fetch('https://api.lovable.dev/v1/ai', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Authorization': `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
-            messages: [{
-              role: 'user',
-              content: `Search the web for current executive job openings on LinkedIn in ${geo.name}. 
-              
-Find REAL job postings from the last 7 days for positions like: ${keywords.join(', ') || 'CEO, CFO, CTO, Director, VP, Head of'}.
-
-For each job found, provide in this exact JSON format:
-[
-  {
-    "title": "Job Title",
-    "company": "Company Name", 
-    "location": "City, Country",
-    "url": "LinkedIn job URL if available",
-    "posted": "Date posted"
-  }
-]
-
-Return ONLY the JSON array, no other text. Find at least 10 real job postings.`
-            }],
-            tools: [{
-              type: 'web_search',
-              search: {
-                enabled: true,
-                context_size: 'high'
-              }
-            }]
-          }),
+            messages: [{ role: 'user', content: `Find current executive job openings in ${geo.name} from LinkedIn. Return JSON: [{"title":"","company":"","location":"","url":""}]` }],
+            tools: [{ type: 'web_search', search: { enabled: true, context_size: 'high' } }]
+          })
         });
-        
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          const content = aiData.choices?.[0]?.message?.content || '';
-          
-          // Parse JSON from AI response
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            try {
-              const jobs = JSON.parse(jsonMatch[0]);
-              for (const job of jobs) {
-                if (job.title && job.company) {
-                  const isExecutive = EXECUTIVE_TITLES.some(t => 
-                    job.title.toLowerCase().includes(t.toLowerCase())
-                  );
-                  
-                  if (isExecutive) {
-                    opportunities.push({
-                      id: `linkedin-ai-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-                      title: job.title.substring(0, 100),
-                      company: job.company.substring(0, 80),
-                      location: job.location || geo.name,
-                      salary_range: 'Competitive',
-                      status: 'New',
-                      source: 'LinkedIn',
-                      posted_date: new Date().toISOString().split('T')[0],
-                      description: `Executive opportunity at ${job.company}. Found via LinkedIn.`,
-                      match_score: 0,
-                      url: job.url || 'https://linkedin.com/jobs',
-                      verified: true,
-                      verification_score: 85,
-                      data_quality: 'scraped',
-                      source_reliability: 'high',
-                      scraped_at: new Date().toISOString()
-                    });
-                  }
-                }
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.choices?.[0]?.message?.content || '';
+          const match = content.match(/\[[\s\S]*\]/);
+          if (match) {
+            for (const job of JSON.parse(match[0])) {
+              if (job.title && job.company && isExecutiveTitle(job.title)) {
+                opps.push({
+                  id: `linkedin-ai-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                  title: job.title.substring(0, 100),
+                  company: job.company.substring(0, 80),
+                  location: job.location || geo.name,
+                  salary_range: 'Competitive', status: 'New', source: 'LinkedIn',
+                  posted_date: new Date().toISOString().split('T')[0],
+                  description: `Executive opportunity at ${job.company}`,
+                  match_score: 0, url: job.url || 'https://linkedin.com/jobs',
+                  verified: true, verification_score: 85,
+                  data_quality: 'scraped', source_reliability: 'high',
+                  scraped_at: new Date().toISOString()
+                });
               }
-              console.log(`  Lovable AI ${geo.name}: Found ${opportunities.length} jobs`);
-            } catch (parseError) {
-              console.log('  Lovable AI: Failed to parse response');
             }
           }
         }
-        
-        await new Promise(r => setTimeout(r, 1000));
-        
-      } catch (error) {
-        console.error(`  Lovable AI ${geo.name} error:`, error);
-      }
+        await new Promise(r => setTimeout(r, 800));
+      } catch (e) { console.error('LinkedIn AI:', e); }
     }
   }
-  
-  return { opportunities: opportunities.slice(0, maxResults), firecrawlFailed };
+  return { opportunities: opps.slice(0, max), firecrawlFailed: failed };
 }
 
-// Parse LinkedIn markdown content to extract job listings
 function parseLinkedInMarkdown(markdown: string, links: string[], regionName: string): VerifiedOpportunity[] {
-  const opportunities: VerifiedOpportunity[] = [];
-  
-  // LinkedIn job listings typically have patterns like:
-  // - Job Title at Company - Location
-  // - Links to /jobs/view/
-  
-  // Extract job links
-  const jobLinks = links.filter(link => 
-    link.includes('linkedin.com/jobs/view/') || 
-    link.includes('linkedin.com/jobs/')
-  );
-  
-  // Parse markdown for job titles and companies
-  const jobPatterns = [
-    // Pattern: "Job Title" followed by "at Company"
+  const opps: VerifiedOpportunity[] = [];
+  const jobLinks = links.filter(l => l.includes('linkedin.com/jobs'));
+  const patterns = [
     /([A-Z][^.!?\n]{5,80})\s+at\s+([A-Z][^.!?\n\-]{2,50})/gi,
-    // Pattern: "Job Title - Company"
-    /([A-Z][^.!?\n]{5,80})\s+[-–]\s+([A-Z][^.!?\n]{2,50})/gi,
-    // Pattern for structured listings
-    /(?:^|\n)([A-Z][A-Za-z\s]+(?:Director|Manager|VP|Chief|Head|President|Executive)[^.!?\n]{0,50})(?:\n|\s{2,})([A-Z][A-Za-z\s&\.]{2,50})/gm
+    /([A-Z][^.!?\n]{5,80})\s+[-–]\s+([A-Z][^.!?\n]{2,50})/gi
   ];
   
-  const foundJobs: { title: string; company: string }[] = [];
-  
-  for (const pattern of jobPatterns) {
-    let match;
-    while ((match = pattern.exec(markdown)) !== null) {
-      const title = match[1].trim();
-      const company = match[2].trim();
-      
-      // Filter for executive-level positions only
-      const isExecutive = EXECUTIVE_TITLES.some(t => 
-        title.toLowerCase().includes(t.toLowerCase())
-      );
-      
-      if (isExecutive && title.length < 100 && company.length < 80) {
-        foundJobs.push({ title, company });
+  const found: { title: string; company: string }[] = [];
+  for (const pat of patterns) {
+    let m;
+    while ((m = pat.exec(markdown)) !== null) {
+      if (isExecutiveTitle(m[1]) && m[1].length < 100 && m[2].length < 80) {
+        found.push({ title: m[1].trim(), company: m[2].trim() });
       }
     }
   }
   
-  // Create opportunities from found jobs
-  for (let i = 0; i < foundJobs.length && i < 20; i++) {
-    const job = foundJobs[i];
-    const jobUrl = jobLinks[i] || 'https://linkedin.com/jobs';
-    
-    opportunities.push({
-      id: `linkedin-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 6)}`,
-      title: job.title.substring(0, 100),
-      company: job.company.substring(0, 80),
+  for (let i = 0; i < Math.min(found.length, 20); i++) {
+    opps.push({
+      id: `linkedin-${Date.now()}-${i}`,
+      title: found[i].title.substring(0, 100),
+      company: found[i].company.substring(0, 80),
       location: regionName,
-      salary_range: 'Competitive',
-      status: 'New',
-      source: 'LinkedIn',
+      salary_range: 'Competitive', status: 'New', source: 'LinkedIn',
       posted_date: new Date().toISOString().split('T')[0],
-      description: `Executive opportunity at ${job.company}. Found via LinkedIn Jobs search.`,
-      match_score: 0,
-      url: jobUrl,
-      verified: true,
-      verification_score: 95,
-      data_quality: 'verified',
-      source_reliability: 'high',
+      description: `Executive opportunity at ${found[i].company}`,
+      match_score: 0, url: jobLinks[i] || 'https://linkedin.com/jobs',
+      verified: true, verification_score: 95,
+      data_quality: 'verified', source_reliability: 'high',
       scraped_at: new Date().toISOString()
     });
   }
-  
-  return opportunities;
+  return opps;
 }
 
-// Parse a single LinkedIn search result
-function parseLinkedInSearchResult(result: any): VerifiedOpportunity | null {
-  try {
-    const url = result.url || '';
-    const title = result.title || '';
-    const description = result.description || result.markdown || '';
-    
-    if (!url || !url.includes('linkedin.com/jobs')) return null;
-    
-    // Extract job title and company from the title
-    const titleParts = title.split(/\s+at\s+|\s+[-|–]\s+|\s+\|\s+/i);
-    const jobTitle = titleParts[0]?.trim() || title;
-    
-    let company = 'Company';
-    if (titleParts.length > 1) {
-      company = titleParts[1]?.trim() || 'Company';
-    }
-    
-    // Check if it's an executive position
-    const isExecutive = EXECUTIVE_TITLES.some(t => 
-      jobTitle.toLowerCase().includes(t.toLowerCase())
-    );
-    
-    if (!isExecutive) return null;
-    
-    // Extract location if present
-    let location = 'Remote';
-    const locationMatch = title.match(/in\s+([A-Za-z\s,]+)(?:\s+[-|]|$)/i);
-    if (locationMatch) location = locationMatch[1].trim();
-    
-    return {
-      id: `linkedin-search-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      title: jobTitle.substring(0, 100),
-      company: company.substring(0, 80),
-      location,
-      salary_range: 'Competitive',
-      status: 'New',
-      source: 'LinkedIn',
-      posted_date: new Date().toISOString().split('T')[0],
-      description: description.substring(0, 1000),
-      match_score: 0,
-      url,
-      verified: true,
-      verification_score: 95,
-      data_quality: 'verified',
-      source_reliability: 'high',
-      scraped_at: new Date().toISOString()
-    };
-  } catch {
-    return null;
-  }
-}
-
-// Firecrawl supplementary scraping (kept for backwards compatibility)
-async function scrapeWithFirecrawl(
-  configs: { region: string, config: typeof REGION_CONFIGS[string] }[],
-  keywords: string[],
-  firecrawlKey: string,
-  maxResults: number
-): Promise<VerifiedOpportunity[]> {
-  const opportunities: VerifiedOpportunity[] = [];
-  
-  // Only do 2-3 queries to conserve credits
-  const queries = [
-    `"${keywords[0] || 'CEO'}" executive job ${configs[0]?.config.locations[0] || 'Europe'}`,
-    `"${keywords[1] || 'Director'}" senior job ${configs[0]?.config.locations[1] || 'Germany'}`
-  ];
-  
-  for (const query of queries.slice(0, 2)) {
-    try {
-      console.log(`  Firecrawl: ${query.substring(0, 40)}...`);
-      
-      const response = await fetch('https://api.firecrawl.dev/v1/search', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${firecrawlKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          limit: 10,
-          scrapeOptions: { formats: ['markdown'], onlyMainContent: true }
-        }),
-      });
-      
-      if (response.status === 402 || response.status === 429) {
-        console.log('  Firecrawl rate limited or credits exhausted');
-        break;
-      }
-      
-      if (!response.ok) continue;
-      
-      const data = await response.json();
-      
-      if (data.data && Array.isArray(data.data)) {
-        for (const result of data.data.slice(0, 5)) {
-          const parsed = parseFirecrawlResult(result);
-          if (parsed) opportunities.push(parsed);
-        }
-      }
-      
-      await new Promise(r => setTimeout(r, 1000));
-      
-    } catch (error) {
-      console.error('Firecrawl error:', error);
-    }
-  }
-  
-  return opportunities.slice(0, maxResults);
-}
-
-function parseFirecrawlResult(result: any): VerifiedOpportunity | null {
-  try {
-    const url = result.url || '';
-    const title = result.title || '';
-    const description = result.description || result.markdown || '';
-    
-    if (!url || !title) return null;
-    
-    const isJobUrl = url.includes('job') || url.includes('career') || url.includes('linkedin.com/jobs');
-    if (!isJobUrl) return null;
-    
-    let company = 'Company';
-    const companyMatch = title.match(/at\s+([^|–\-\n]+)/i);
-    if (companyMatch) company = companyMatch[1].trim();
-    
-    const titleParts = title.split(/\s+at\s+|\s+[-|–]\s+/i);
-    const jobTitle = titleParts[0]?.trim() || title;
-    
-    const isExecutive = EXECUTIVE_TITLES.some(t => jobTitle.toLowerCase().includes(t.toLowerCase()));
-    if (!isExecutive) return null;
-    
-    let source = 'Job Board';
-    if (url.includes('linkedin')) source = 'LinkedIn';
-    else if (url.includes('indeed')) source = 'Indeed';
-    else if (url.includes('glassdoor')) source = 'Glassdoor';
-    
-    return {
-      id: `scraped-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      title: jobTitle.substring(0, 100),
-      company: company.substring(0, 80),
-      location: 'From posting',
-      salary_range: 'Competitive',
-      status: 'New',
-      source,
-      posted_date: 'Recent',
-      description: description.substring(0, 1000),
-      match_score: 0,
-      url,
-      verified: true,
-      verification_score: 80,
-      data_quality: 'scraped',
-      source_reliability: 'high',
-      scraped_at: new Date().toISOString()
-    };
-  } catch {
-    return null;
-  }
-}
-
-// AI-generated opportunities as fallback
-async function generateAIOpportunities(
-  configs: { region: string, config: typeof REGION_CONFIGS[string] }[],
-  targetRole: string,
-  industries: string,
-  bio: string,
-  apiKey: string,
-  count: number
-): Promise<VerifiedOpportunity[]> {
-  const allOpportunities: VerifiedOpportunity[] = [];
-  
+async function generateAIOpportunities(configs: { region: string; config: typeof REGION_CONFIGS[string] }[], targetRole: string, industries: string, bio: string, apiKey: string, count: number): Promise<VerifiedOpportunity[]> {
+  const all: VerifiedOpportunity[] = [];
   for (const { region, config } of configs) {
-    const perRegionCount = Math.ceil(count / configs.length);
-    
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            {
-              role: 'system',
-              content: `You are an expert executive recruiter with deep knowledge of the ${region} job market. Generate REALISTIC executive job opportunities based on actual market conditions.`
-            },
-            {
-              role: 'user',
-              content: `Generate ${perRegionCount} realistic executive opportunities for ${region}.
-
-CANDIDATE PROFILE:
-- Target Role: ${targetRole}
-- Industries: ${industries}
-- Experience: ${bio.substring(0, 300) || 'Senior executive with 15+ years experience'}
-
-REAL COMPANIES: ${config.realCompanies.slice(0, 20).join(', ')}
-LOCATIONS: ${config.locations.slice(0, 5).join(', ')}
-CURRENCY: ${config.currency}
-
-Return ONLY valid JSON array:
-[{
-  "title": "Chief Technology Officer",
-  "company": "Company from list",
-  "location": "City, Country",
-  "salary_range": "${config.currency}180,000 - ${config.currency}250,000",
-  "description": "Detailed role description...",
-  "posted_date": "${new Date().toISOString().split('T')[0]}",
-  "match_score": 85
-}]`
-            }
+            { role: 'system', content: `Expert recruiter for ${region}.` },
+            { role: 'user', content: `Generate ${Math.ceil(count / configs.length)} executive opportunities for ${region}. Companies: ${config.realCompanies.slice(0, 15).join(', ')}. Locations: ${config.locations.slice(0, 5).join(', ')}. Target: ${targetRole}. Industries: ${industries}. Return JSON array: [{"title":"","company":"","location":"","salary_range":"","description":"","match_score":85}]` }
           ],
-          max_tokens: 6000,
-          temperature: 0.8
-        }),
+          max_tokens: 5000, temperature: 0.7
+        })
       });
-
-      if (!response.ok) continue;
-
-      const data = await response.json();
+      if (!res.ok) continue;
+      const data = await res.json();
       const content = data.choices?.[0]?.message?.content || '';
-      
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const opportunities = JSON.parse(jsonMatch[0]);
-        
-        for (let i = 0; i < opportunities.length; i++) {
-          const opp = opportunities[i];
-          allOpportunities.push({
-            id: `ai-${region.toLowerCase()}-${Date.now()}-${i}`,
+      const match = content.match(/\[[\s\S]*\]/);
+      if (match) {
+        for (const opp of JSON.parse(match[0])) {
+          all.push({
+            id: `ai-${region.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
             title: opp.title || 'Executive Position',
-            company: opp.company || config.realCompanies[i % config.realCompanies.length],
+            company: opp.company || config.realCompanies[0],
             location: opp.location || config.locations[0],
             salary_range: opp.salary_range || `${config.currency}Competitive`,
-            status: 'New',
-            source: 'AI Market Analysis',
-            posted_date: opp.posted_date || new Date().toISOString().split('T')[0],
+            status: 'New', source: 'AI Market Analysis',
+            posted_date: new Date().toISOString().split('T')[0],
             description: opp.description || '',
             match_score: opp.match_score || 70,
-            url: `https://linkedin.com/jobs`,
-            verified: false,
-            verification_score: 30,
-            data_quality: 'ai_generated',
-            source_reliability: 'medium'
+            url: 'https://linkedin.com/jobs',
+            verified: false, verification_score: 30,
+            data_quality: 'ai_generated', source_reliability: 'medium'
           });
         }
       }
-    } catch (error) {
-      console.error(`AI generation error for ${region}:`, error);
-    }
+    } catch (e) { console.error('AI gen:', e); }
   }
-  
-  return allOpportunities;
+  return all;
 }
 
-// Score opportunities using AI
-async function scoreOpportunities(
-  opportunities: VerifiedOpportunity[],
-  targetRole: string,
-  industries: string,
-  bio: string,
-  apiKey: string
-): Promise<VerifiedOpportunity[]> {
-  if (opportunities.length === 0) return [];
-  
+async function scoreOpportunities(opps: VerifiedOpportunity[], targetRole: string, industries: string, bio: string, apiKey: string): Promise<VerifiedOpportunity[]> {
+  if (opps.length === 0) return [];
   try {
-    const batchSize = 30;
+    const batch = 40;
     const results: VerifiedOpportunity[] = [];
-    
-    for (let i = 0; i < opportunities.length; i += batchSize) {
-      const batch = opportunities.slice(i, i + batchSize);
-      
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    for (let i = 0; i < opps.length; i += batch) {
+      const chunk = opps.slice(i, i + batch);
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            {
-              role: 'system',
-              content: 'You are an executive career advisor. Calculate precise match scores based on role alignment, industry fit, and seniority match.'
-            },
-            {
-              role: 'user',
-              content: `Score these opportunities for a candidate targeting: ${targetRole} in ${industries}.
-
-Candidate: ${bio.substring(0, 200) || 'Senior executive'}
-
-Opportunities:
-${JSON.stringify(batch.map(o => ({ title: o.title, company: o.company, desc: o.description?.substring(0, 150) })), null, 2)}
-
-Return ONLY: [{"index": 0, "match_score": 85}, ...]`
-            }
+            { role: 'system', content: 'Career advisor. Score jobs 0-100 based on fit.' },
+            { role: 'user', content: `Score for ${targetRole} in ${industries}. Jobs: ${JSON.stringify(chunk.map(o => ({ t: o.title, c: o.company })))}. Return: [{"i":0,"s":85}]` }
           ],
-          max_tokens: 2000
-        }),
+          max_tokens: 1500
+        })
       });
-
-      if (response.ok) {
-        const data = await response.json();
+      if (res.ok) {
+        const data = await res.json();
         const content = data.choices?.[0]?.message?.content || '';
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        
-        if (jsonMatch) {
-          const scores = JSON.parse(jsonMatch[0]);
-          batch.forEach((opp, idx) => {
-            const scoreData = scores.find((s: any) => s.index === idx);
-            results.push({
-              ...opp,
-              match_score: scoreData?.match_score || opp.match_score || 60
-            });
+        const match = content.match(/\[[\s\S]*\]/);
+        if (match) {
+          const scores = JSON.parse(match[0]);
+          chunk.forEach((o, idx) => {
+            const s = scores.find((x: any) => x.i === idx || x.index === idx);
+            results.push({ ...o, match_score: s?.s || s?.score || s?.match_score || o.match_score || 60 });
           });
-        } else {
-          results.push(...batch);
-        }
-      } else {
-        results.push(...batch);
-      }
+        } else results.push(...chunk);
+      } else results.push(...chunk);
     }
-    
     return results;
-  } catch (error) {
-    console.error('Scoring error:', error);
-    return opportunities;
+  } catch (e) {
+    console.error('Scoring:', e);
+    return opps;
   }
 }
