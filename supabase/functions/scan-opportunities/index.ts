@@ -219,6 +219,26 @@ const LINKEDIN_GEOID_MAP: Record<string, { geoId: string; name: string }[]> = {
   'Europe': [{ geoId: '91000000', name: 'European Union' }]
 };
 
+// Jobicy region mapping
+const JOBICY_REGIONS: Record<string, string[]> = {
+  'DACH': ['dach', 'germany', 'austria', 'switzerland'],
+  'SEE': ['europe', 'emea'],
+  'Nordics': ['europe', 'nordic'],
+  'UK': ['uk', 'europe'],
+  'North America': ['usa', 'canada', 'north-america'],
+  'Middle East': ['emea', 'middle-east'],
+  'Asia': ['asia', 'apac'],
+  'Oceania': ['oceania', 'australia'],
+  'Eastern Europe': ['europe', 'eastern-europe'],
+  'Latin America': ['latin-america', 'south-america'],
+  'Africa': ['africa', 'emea'],
+  'Benelux': ['europe', 'benelux'],
+  'France': ['europe', 'france'],
+  'Italy': ['europe', 'italy'],
+  'Iberia': ['europe', 'spain', 'portugal'],
+  'Baltics': ['europe', 'baltics']
+};
+
 // ===== HELPER FUNCTIONS =====
 function normalizeRegionName(regionInput: string): string {
   return REGION_NAME_MAP[regionInput.toLowerCase().trim()] || regionInput;
@@ -273,7 +293,7 @@ serve(async (req) => {
     const body = await req.json();
     const regions = body.regions || ['SEE'];
     const userProfile = body.userProfile || {};
-    const maxResults = Math.min(body.maxResults || 1000, 2000); // Increased default
+    const maxResults = Math.min(body.maxResults || 1500, 3000); // Increased to 3000
     const industryFilter = sanitizeInput(body.industryFilter || '');
     const experienceLevelFilter = sanitizeInput(body.experienceLevelFilter || '');
     
@@ -282,6 +302,7 @@ serve(async (req) => {
     const ADZUNA_APP_ID = Deno.env.get('ADZUNA_APP_ID');
     const ADZUNA_API_KEY = Deno.env.get('ADZUNA_API_KEY');
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
+    const FINDWORK_API_KEY = Deno.env.get('FINDWORK_API_KEY');
     
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -290,7 +311,8 @@ serve(async (req) => {
       );
     }
 
-    console.log('🔍 Comprehensive scan for:', regions);
+    console.log('🚀 WORLD-CLASS OPPORTUNITY SCANNER - 11 API SOURCES');
+    console.log('🔍 Scanning for regions:', regions);
     
     const targetRole = sanitizeInput(userProfile?.targetRole || 'Executive Leadership');
     const industries = sanitizeInput(userProfile?.industries || 'Technology, Finance');
@@ -304,16 +326,17 @@ serve(async (req) => {
     }));
 
     const searchStats = {
-      adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0, ai: 0,
-      errors: [] as string[], totalRaw: 0, afterFilter: 0
+      adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0,
+      jobicy: 0, himalayas: 0, landingjobs: 0, findwork: 0, usajobs: 0,
+      ai: 0, errors: [] as string[], totalRaw: 0, afterFilter: 0
     };
 
-    // ===== PARALLEL API FETCHING =====
-    const perSourceLimit = Math.ceil(maxResults / 5);
+    // ===== PARALLEL API FETCHING - 11 SOURCES =====
+    const perSourceLimit = Math.ceil(maxResults / 10);
     
     const apiPromises = [];
 
-    // Adzuna
+    // 1. Adzuna (requires API key)
     if (ADZUNA_APP_ID && ADZUNA_API_KEY) {
       apiPromises.push(
         fetchFromAdzuna(normalizedRegionNames, roleKeywords, ADZUNA_APP_ID, ADZUNA_API_KEY, perSourceLimit)
@@ -322,7 +345,7 @@ serve(async (req) => {
       );
     }
 
-    // JSearch
+    // 2. JSearch (requires RapidAPI key)
     if (RAPIDAPI_KEY) {
       apiPromises.push(
         fetchFromJSearch(normalizedRegionNames, roleKeywords, RAPIDAPI_KEY, perSourceLimit)
@@ -331,28 +354,71 @@ serve(async (req) => {
       );
     }
 
-    // Arbeitnow (free)
+    // 3. Arbeitnow (FREE - no auth required)
     apiPromises.push(
       fetchFromArbeitnow(selectedConfigs, roleKeywords, perSourceLimit)
         .then(jobs => { searchStats.arbeitnow = jobs.length; return jobs; })
         .catch(e => { searchStats.errors.push(`Arbeitnow: ${e.message}`); return []; })
     );
 
-    // Remotive (free)
+    // 4. Remotive (FREE - no auth required)
     apiPromises.push(
       fetchFromRemotive(roleKeywords, perSourceLimit)
         .then(jobs => { searchStats.remotive = jobs.length; return jobs; })
         .catch(e => { searchStats.errors.push(`Remotive: ${e.message}`); return []; })
     );
 
-    // The Muse (free)
+    // 5. The Muse (FREE - no auth required)
     apiPromises.push(
       fetchFromTheMuse(normalizedRegionNames, perSourceLimit)
         .then(jobs => { searchStats.themuse = jobs.length; return jobs; })
         .catch(e => { searchStats.errors.push(`TheMuse: ${e.message}`); return []; })
     );
 
-    // LinkedIn via Firecrawl or AI fallback
+    // 6. Jobicy (FREE - no auth required) - NEW!
+    apiPromises.push(
+      fetchFromJobicy(normalizedRegionNames, perSourceLimit)
+        .then(jobs => { searchStats.jobicy = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`Jobicy: ${e.message}`); return []; })
+    );
+
+    // 7. Himalayas (FREE - no auth required) - NEW!
+    apiPromises.push(
+      fetchFromHimalayas(roleKeywords, perSourceLimit)
+        .then(jobs => { searchStats.himalayas = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`Himalayas: ${e.message}`); return []; })
+    );
+
+    // 8. Landing.jobs (FREE - EU tech jobs) - NEW!
+    apiPromises.push(
+      fetchFromLandingJobs(normalizedRegionNames, roleKeywords, perSourceLimit)
+        .then(jobs => { searchStats.landingjobs = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`Landing.jobs: ${e.message}`); return []; })
+    );
+
+    // 9. Findwork.dev (requires API key but FREE signup)
+    if (FINDWORK_API_KEY) {
+      apiPromises.push(
+        fetchFromFindwork(normalizedRegionNames, roleKeywords, FINDWORK_API_KEY, perSourceLimit)
+          .then(jobs => { searchStats.findwork = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`Findwork: ${e.message}`); return []; })
+      );
+    }
+
+    // 10. USAJobs (FREE - government jobs for North America)
+    if (normalizedRegionNames.includes('North America')) {
+      const USAJOBS_API_KEY = Deno.env.get('USAJOBS_API_KEY');
+      const USAJOBS_EMAIL = Deno.env.get('USAJOBS_EMAIL');
+      if (USAJOBS_API_KEY && USAJOBS_EMAIL) {
+        apiPromises.push(
+          fetchFromUSAJobs(roleKeywords, USAJOBS_API_KEY, USAJOBS_EMAIL, perSourceLimit)
+            .then(jobs => { searchStats.usajobs = jobs.length; return jobs; })
+            .catch(e => { searchStats.errors.push(`USAJobs: ${e.message}`); return []; })
+        );
+      }
+    }
+
+    // 11. LinkedIn via Firecrawl or AI fallback
     apiPromises.push(
       fetchFromLinkedIn(normalizedRegionNames, roleKeywords, FIRECRAWL_API_KEY || '', LOVABLE_API_KEY, perSourceLimit)
         .then(result => { searchStats.linkedin = result.opportunities.length; return result.opportunities; })
@@ -364,7 +430,11 @@ serve(async (req) => {
     const allOpportunities = results.flat();
     searchStats.totalRaw = allOpportunities.length;
     
-    console.log(`📊 Raw results: ${searchStats.totalRaw}`);
+    console.log(`📊 Raw results from 11 sources: ${searchStats.totalRaw}`);
+    console.log(`   Adzuna: ${searchStats.adzuna}, JSearch: ${searchStats.jsearch}, Arbeitnow: ${searchStats.arbeitnow}`);
+    console.log(`   Remotive: ${searchStats.remotive}, TheMuse: ${searchStats.themuse}, LinkedIn: ${searchStats.linkedin}`);
+    console.log(`   Jobicy: ${searchStats.jobicy}, Himalayas: ${searchStats.himalayas}, Landing.jobs: ${searchStats.landingjobs}`);
+    console.log(`   Findwork: ${searchStats.findwork}, USAJobs: ${searchStats.usajobs}`);
 
     // ===== FILTERING =====
     let filtered = allOpportunities.filter(opp => 
@@ -389,13 +459,13 @@ serve(async (req) => {
       }
     }
 
-    // ===== AI SUPPLEMENTATION =====
-    if (filtered.length < maxResults / 2) {
-      console.log('🤖 Generating AI opportunities...');
+    // ===== AI SUPPLEMENTATION (if needed) =====
+    if (filtered.length < maxResults / 3) {
+      console.log('🤖 Generating AI opportunities to supplement...');
       try {
         const aiJobs = await generateAIOpportunities(
           selectedConfigs, targetRole, industries, bio, LOVABLE_API_KEY,
-          Math.min(200, maxResults - filtered.length)
+          Math.min(300, maxResults - filtered.length)
         );
         filtered.push(...aiJobs);
         searchStats.ai = aiJobs.length;
@@ -425,7 +495,7 @@ serve(async (req) => {
     });
 
     searchStats.afterFilter = unique.length;
-    console.log(`✅ Final: ${unique.length} opportunities`);
+    console.log(`✅ Final: ${unique.length} unique opportunities from 11 sources`);
 
     return new Response(
       JSON.stringify({
@@ -435,7 +505,10 @@ serve(async (req) => {
           breakdown: {
             adzuna: searchStats.adzuna, jsearch: searchStats.jsearch,
             arbeitnow: searchStats.arbeitnow, remotive: searchStats.remotive,
-            themuse: searchStats.themuse, linkedin: searchStats.linkedin, ai: searchStats.ai
+            themuse: searchStats.themuse, linkedin: searchStats.linkedin,
+            jobicy: searchStats.jobicy, himalayas: searchStats.himalayas,
+            landingjobs: searchStats.landingjobs, findwork: searchStats.findwork,
+            usajobs: searchStats.usajobs, ai: searchStats.ai
           },
           quality: {
             verified: unique.filter(o => o.data_quality === 'verified').length,
@@ -458,6 +531,8 @@ serve(async (req) => {
 });
 
 // ===== API FETCHERS =====
+
+// 1. Adzuna
 async function fetchFromAdzuna(regions: string[], keywords: string[], appId: string, apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   const countries = [...new Set(regions.flatMap(r => ADZUNA_COUNTRIES[r] || []))].slice(0, 6);
@@ -495,6 +570,7 @@ async function fetchFromAdzuna(regions: string[], keywords: string[], appId: str
   return opps;
 }
 
+// 2. JSearch
 async function fetchFromJSearch(regions: string[], keywords: string[], rapidApiKey: string, max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   const locations = [...new Set(regions.flatMap(r => (JSEARCH_LOCATIONS[r] || []).slice(0, 3)))].slice(0, 8);
@@ -537,6 +613,7 @@ async function fetchFromJSearch(regions: string[], keywords: string[], rapidApiK
   return opps;
 }
 
+// 3. Arbeitnow (FREE)
 async function fetchFromArbeitnow(configs: { region: string; config: typeof REGION_CONFIGS[string] }[], keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   try {
@@ -567,6 +644,7 @@ async function fetchFromArbeitnow(configs: { region: string; config: typeof REGI
   return opps.slice(0, max);
 }
 
+// 4. Remotive (FREE)
 async function fetchFromRemotive(keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   try {
@@ -592,6 +670,7 @@ async function fetchFromRemotive(keywords: string[], max: number): Promise<Verif
   return opps;
 }
 
+// 5. The Muse (FREE)
 async function fetchFromTheMuse(regions: string[], max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   try {
@@ -620,6 +699,199 @@ async function fetchFromTheMuse(regions: string[], max: number): Promise<Verifie
   return opps.slice(0, max);
 }
 
+// 6. Jobicy (FREE - no auth required) - NEW!
+async function fetchFromJobicy(regions: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    // Get Jobicy region codes
+    const jobicyGeos = [...new Set(regions.flatMap(r => JOBICY_REGIONS[r] || ['worldwide']))];
+    
+    for (const geo of jobicyGeos.slice(0, 3)) {
+      const url = `https://jobicy.com/api/v2/remote-jobs?count=100&geo=${geo}`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      
+      const data = await res.json();
+      for (const job of (data.jobs || []).slice(0, Math.ceil(max / jobicyGeos.length))) {
+        if (!isExecutiveTitle(job.jobTitle || '') && !(job.jobTitle || '').toLowerCase().includes('senior') && !(job.jobTitle || '').toLowerCase().includes('lead')) continue;
+        
+        opps.push({
+          id: `jobicy-${job.id}-${Date.now()}`,
+          title: job.jobTitle || 'Position',
+          company: job.companyName || 'Company',
+          location: job.jobGeo || 'Remote',
+          salary_range: job.annualSalaryMin && job.annualSalaryMax 
+            ? `$${job.annualSalaryMin.toLocaleString()} - $${job.annualSalaryMax.toLocaleString()}` 
+            : 'Competitive',
+          status: 'New', source: 'Jobicy',
+          posted_date: job.pubDate ? new Date(job.pubDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          description: (job.jobDescription || job.jobExcerpt || '').substring(0, 1500),
+          match_score: 0, url: job.url || 'https://jobicy.com',
+          verified: true, verification_score: 85,
+          data_quality: 'verified', source_reliability: 'high',
+          scraped_at: new Date().toISOString(),
+          industry: job.jobIndustry?.[0] || undefined
+        });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { console.error('Jobicy:', e); }
+  return opps.slice(0, max);
+}
+
+// 7. Himalayas (FREE - no auth required) - NEW!
+async function fetchFromHimalayas(keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    // Himalayas offers a free public API
+    const res = await fetch('https://himalayas.app/jobs/api?limit=200');
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    for (const job of (data.jobs || []).filter((j: any) => 
+      isExecutiveTitle(j.title || '') || 
+      (j.title || '').toLowerCase().includes('senior') || 
+      (j.title || '').toLowerCase().includes('lead') ||
+      (j.title || '').toLowerCase().includes('manager')
+    ).slice(0, max)) {
+      opps.push({
+        id: `himalayas-${job.id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        title: job.title || 'Position',
+        company: job.companyName || job.company?.name || 'Company',
+        location: job.locationRestrictions?.join(', ') || 'Remote',
+        salary_range: job.minSalary && job.maxSalary 
+          ? `$${job.minSalary.toLocaleString()} - $${job.maxSalary.toLocaleString()}` 
+          : 'Competitive',
+        status: 'New', source: 'Himalayas',
+        posted_date: job.pubDate || job.publishedAt ? new Date(job.pubDate || job.publishedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.description || job.excerpt || '').substring(0, 1500),
+        match_score: 0, url: job.applicationUrl || job.url || `https://himalayas.app/jobs/${job.slug || job.id}`,
+        verified: true, verification_score: 80,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString(),
+        industry: job.categories?.[0] || undefined
+      });
+    }
+  } catch (e) { console.error('Himalayas:', e); }
+  return opps;
+}
+
+// 8. Landing.jobs (FREE - EU tech jobs) - NEW!
+async function fetchFromLandingJobs(regions: string[], keywords: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    // Landing.jobs focuses on European tech jobs - perfect for SEE, DACH, etc.
+    const europeanRegions = ['SEE', 'DACH', 'Nordics', 'UK', 'Eastern Europe', 'Benelux', 'France', 'Italy', 'Iberia', 'Baltics'];
+    const isEuropean = regions.some(r => europeanRegions.includes(r));
+    
+    if (!isEuropean) return [];
+    
+    const res = await fetch('https://landing.jobs/api/v1/jobs?limit=100&hd=true');
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    for (const job of (data.jobs || data || []).filter((j: any) => 
+      isExecutiveTitle(j.title || j.job_title || '') || 
+      (j.title || j.job_title || '').toLowerCase().includes('senior') ||
+      (j.title || j.job_title || '').toLowerCase().includes('head')
+    ).slice(0, max)) {
+      opps.push({
+        id: `landingjobs-${job.id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        title: job.title || job.job_title || 'Position',
+        company: job.company?.name || job.company_name || 'Company',
+        location: job.city || job.location || 'Europe',
+        salary_range: job.salary_from && job.salary_to 
+          ? `€${job.salary_from.toLocaleString()} - €${job.salary_to.toLocaleString()}` 
+          : 'Competitive',
+        status: 'New', source: 'Landing.jobs',
+        posted_date: job.published_at || job.created_at ? new Date(job.published_at || job.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.description || job.role_description || '').substring(0, 1500),
+        match_score: 0, url: job.url || job.job_url || 'https://landing.jobs',
+        verified: true, verification_score: 88,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString()
+      });
+    }
+  } catch (e) { console.error('Landing.jobs:', e); }
+  return opps;
+}
+
+// 9. Findwork.dev (FREE with API key)
+async function fetchFromFindwork(regions: string[], keywords: string[], apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const search = keywords.length > 0 ? keywords.slice(0, 2).join(' ') : 'director manager';
+    const res = await fetch(`https://findwork.dev/api/jobs/?search=${encodeURIComponent(search)}&sort_by=date`, {
+      headers: { 'Authorization': `Token ${apiKey}` }
+    });
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    for (const job of (data.results || []).filter((j: any) => 
+      isExecutiveTitle(j.role || '') || 
+      (j.role || '').toLowerCase().includes('senior')
+    ).slice(0, max)) {
+      opps.push({
+        id: `findwork-${job.id}-${Date.now()}`,
+        title: job.role || 'Position',
+        company: job.company_name || 'Company',
+        location: job.location || 'Remote',
+        salary_range: 'Competitive', status: 'New', source: 'Findwork',
+        posted_date: job.date_posted ? new Date(job.date_posted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.text || job.description || '').substring(0, 1500),
+        match_score: 0, url: job.url || 'https://findwork.dev',
+        verified: true, verification_score: 85,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString()
+      });
+    }
+  } catch (e) { console.error('Findwork:', e); }
+  return opps;
+}
+
+// 10. USAJobs (FREE government jobs)
+async function fetchFromUSAJobs(keywords: string[], apiKey: string, email: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const search = keywords.length > 0 ? keywords.slice(0, 2).join(' ') : 'Director Executive';
+    const res = await fetch(`https://data.usajobs.gov/api/search?Keyword=${encodeURIComponent(search)}&ResultsPerPage=${max}`, {
+      headers: {
+        'Authorization-Key': apiKey,
+        'User-Agent': email
+      }
+    });
+    if (!res.ok) return [];
+    
+    const data = await res.json();
+    for (const result of (data.SearchResult?.SearchResultItems || []).slice(0, max)) {
+      const job = result.MatchedObjectDescriptor;
+      if (!job) continue;
+      
+      const title = job.PositionTitle || '';
+      if (!isExecutiveTitle(title) && !title.toLowerCase().includes('director') && !title.toLowerCase().includes('executive')) continue;
+      
+      opps.push({
+        id: `usajobs-${job.PositionID}-${Date.now()}`,
+        title: job.PositionTitle || 'Position',
+        company: job.OrganizationName || job.DepartmentName || 'US Government',
+        location: job.PositionLocationDisplay || 'USA',
+        salary_range: job.PositionRemuneration?.[0] 
+          ? `$${job.PositionRemuneration[0].MinimumRange} - $${job.PositionRemuneration[0].MaximumRange}` 
+          : 'Competitive',
+        status: 'New', source: 'USAJobs',
+        posted_date: job.PublicationStartDate ? new Date(job.PublicationStartDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.UserArea?.Details?.JobSummary || job.QualificationSummary || '').substring(0, 1500),
+        match_score: 0, url: job.PositionURI || 'https://usajobs.gov',
+        verified: true, verification_score: 95,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString()
+      });
+    }
+  } catch (e) { console.error('USAJobs:', e); }
+  return opps;
+}
+
+// 11. LinkedIn via Firecrawl or AI fallback
 async function fetchFromLinkedIn(regions: string[], keywords: string[], firecrawlKey: string, lovableKey: string, max: number): Promise<{ opportunities: VerifiedOpportunity[]; firecrawlFailed: boolean }> {
   const opps: VerifiedOpportunity[] = [];
   let failed = !firecrawlKey;
@@ -778,7 +1050,7 @@ async function generateAIOpportunities(configs: { region: string; config: typeof
 async function scoreOpportunities(opps: VerifiedOpportunity[], targetRole: string, industries: string, bio: string, apiKey: string): Promise<VerifiedOpportunity[]> {
   if (opps.length === 0) return [];
   try {
-    const batch = 40;
+    const batch = 50;
     const results: VerifiedOpportunity[] = [];
     for (let i = 0; i < opps.length; i += batch) {
       const chunk = opps.slice(i, i + batch);
@@ -791,7 +1063,7 @@ async function scoreOpportunities(opps: VerifiedOpportunity[], targetRole: strin
             { role: 'system', content: 'Career advisor. Score jobs 0-100 based on fit.' },
             { role: 'user', content: `Score for ${targetRole} in ${industries}. Jobs: ${JSON.stringify(chunk.map(o => ({ t: o.title, c: o.company })))}. Return: [{"i":0,"s":85}]` }
           ],
-          max_tokens: 1500
+          max_tokens: 2000
         })
       });
       if (res.ok) {
