@@ -302,7 +302,7 @@ serve(async (req) => {
     const ADZUNA_APP_ID = Deno.env.get('ADZUNA_APP_ID');
     const ADZUNA_API_KEY = Deno.env.get('ADZUNA_API_KEY');
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    const FINDWORK_API_KEY = Deno.env.get('FINDWORK_API_KEY');
+    
     
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -327,7 +327,7 @@ serve(async (req) => {
 
     const searchStats = {
       adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0,
-      jobicy: 0, himalayas: 0, landingjobs: 0, findwork: 0, usajobs: 0,
+      jobicy: 0, himalayas: 0, landingjobs: 0, usajobs: 0,
       ai: 0, errors: [] as string[], totalRaw: 0, afterFilter: 0
     };
 
@@ -396,14 +396,6 @@ serve(async (req) => {
         .catch(e => { searchStats.errors.push(`Landing.jobs: ${e.message}`); return []; })
     );
 
-    // 9. Findwork.dev (requires API key but FREE signup)
-    if (FINDWORK_API_KEY) {
-      apiPromises.push(
-        fetchFromFindwork(normalizedRegionNames, roleKeywords, FINDWORK_API_KEY, perSourceLimit)
-          .then(jobs => { searchStats.findwork = jobs.length; return jobs; })
-          .catch(e => { searchStats.errors.push(`Findwork: ${e.message}`); return []; })
-      );
-    }
 
     // 10. USAJobs (FREE - government jobs for North America)
     if (normalizedRegionNames.includes('North America')) {
@@ -434,7 +426,7 @@ serve(async (req) => {
     console.log(`   Adzuna: ${searchStats.adzuna}, JSearch: ${searchStats.jsearch}, Arbeitnow: ${searchStats.arbeitnow}`);
     console.log(`   Remotive: ${searchStats.remotive}, TheMuse: ${searchStats.themuse}, LinkedIn: ${searchStats.linkedin}`);
     console.log(`   Jobicy: ${searchStats.jobicy}, Himalayas: ${searchStats.himalayas}, Landing.jobs: ${searchStats.landingjobs}`);
-    console.log(`   Findwork: ${searchStats.findwork}, USAJobs: ${searchStats.usajobs}`);
+    console.log(`   USAJobs: ${searchStats.usajobs}`);
 
     // ===== FILTERING =====
     let filtered = allOpportunities.filter(opp => 
@@ -507,7 +499,7 @@ serve(async (req) => {
             arbeitnow: searchStats.arbeitnow, remotive: searchStats.remotive,
             themuse: searchStats.themuse, linkedin: searchStats.linkedin,
             jobicy: searchStats.jobicy, himalayas: searchStats.himalayas,
-            landingjobs: searchStats.landingjobs, findwork: searchStats.findwork,
+            landingjobs: searchStats.landingjobs,
             usajobs: searchStats.usajobs, ai: searchStats.ai
           },
           quality: {
@@ -816,38 +808,6 @@ async function fetchFromLandingJobs(regions: string[], keywords: string[], max: 
   return opps;
 }
 
-// 9. Findwork.dev (FREE with API key)
-async function fetchFromFindwork(regions: string[], keywords: string[], apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
-  const opps: VerifiedOpportunity[] = [];
-  try {
-    const search = keywords.length > 0 ? keywords.slice(0, 2).join(' ') : 'director manager';
-    const res = await fetch(`https://findwork.dev/api/jobs/?search=${encodeURIComponent(search)}&sort_by=date`, {
-      headers: { 'Authorization': `Token ${apiKey}` }
-    });
-    if (!res.ok) return [];
-    
-    const data = await res.json();
-    for (const job of (data.results || []).filter((j: any) => 
-      isExecutiveTitle(j.role || '') || 
-      (j.role || '').toLowerCase().includes('senior')
-    ).slice(0, max)) {
-      opps.push({
-        id: `findwork-${job.id}-${Date.now()}`,
-        title: job.role || 'Position',
-        company: job.company_name || 'Company',
-        location: job.location || 'Remote',
-        salary_range: 'Competitive', status: 'New', source: 'Findwork',
-        posted_date: job.date_posted ? new Date(job.date_posted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        description: (job.text || job.description || '').substring(0, 1500),
-        match_score: 0, url: job.url || 'https://findwork.dev',
-        verified: true, verification_score: 85,
-        data_quality: 'verified', source_reliability: 'high',
-        scraped_at: new Date().toISOString()
-      });
-    }
-  } catch (e) { console.error('Findwork:', e); }
-  return opps;
-}
 
 // 10. USAJobs (FREE government jobs)
 async function fetchFromUSAJobs(keywords: string[], apiKey: string, email: string, max: number): Promise<VerifiedOpportunity[]> {
