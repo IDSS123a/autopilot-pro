@@ -302,7 +302,9 @@ serve(async (req) => {
     const ADZUNA_APP_ID = Deno.env.get('ADZUNA_APP_ID');
     const ADZUNA_API_KEY = Deno.env.get('ADZUNA_API_KEY');
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
-    
+    const REED_API_KEY = Deno.env.get('REED_API_KEY');
+    const JOOBLE_API_KEY = Deno.env.get('JOOBLE_API_KEY');
+    const CAREERJET_AFFID = Deno.env.get('CAREERJET_AFFID');
     
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -311,7 +313,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🚀 WORLD-CLASS OPPORTUNITY SCANNER - 11 API SOURCES');
+    console.log('🚀 WORLD-CLASS OPPORTUNITY SCANNER - 14 API SOURCES');
     console.log('🔍 Scanning for regions:', regions);
     
     const targetRole = sanitizeInput(userProfile?.targetRole || 'Executive Leadership');
@@ -328,6 +330,7 @@ serve(async (req) => {
     const searchStats = {
       adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0,
       jobicy: 0, himalayas: 0, landingjobs: 0, usajobs: 0,
+      reed: 0, jooble: 0, careerjet: 0, devitjobs: 0,
       ai: 0, errors: [] as string[], totalRaw: 0, afterFilter: 0
     };
 
@@ -396,6 +399,39 @@ serve(async (req) => {
         .catch(e => { searchStats.errors.push(`Landing.jobs: ${e.message}`); return []; })
     );
 
+    // 9. Reed.co.uk (FREE API key)
+    if (REED_API_KEY) {
+      apiPromises.push(
+        fetchFromReed(normalizedRegionNames, roleKeywords, REED_API_KEY, perSourceLimit)
+          .then(jobs => { searchStats.reed = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`Reed: ${e.message}`); return []; })
+      );
+    }
+
+    // 10. Jooble (FREE API key)
+    if (JOOBLE_API_KEY) {
+      apiPromises.push(
+        fetchFromJooble(normalizedRegionNames, roleKeywords, JOOBLE_API_KEY, perSourceLimit)
+          .then(jobs => { searchStats.jooble = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`Jooble: ${e.message}`); return []; })
+      );
+    }
+
+    // 11. Careerjet (FREE affiliate ID)
+    if (CAREERJET_AFFID) {
+      apiPromises.push(
+        fetchFromCareerjet(normalizedRegionNames, roleKeywords, CAREERJET_AFFID, perSourceLimit)
+          .then(jobs => { searchStats.careerjet = jobs.length; return jobs; })
+          .catch(e => { searchStats.errors.push(`Careerjet: ${e.message}`); return []; })
+      );
+    }
+
+    // 12. DevITjobs UK (FREE - no auth required)
+    apiPromises.push(
+      fetchFromDevITjobs(normalizedRegionNames, perSourceLimit)
+        .then(jobs => { searchStats.devitjobs = jobs.length; return jobs; })
+        .catch(e => { searchStats.errors.push(`DevITjobs: ${e.message}`); return []; })
+    );
 
     // 10. USAJobs (FREE - government jobs for North America)
     if (normalizedRegionNames.includes('North America')) {
@@ -422,11 +458,12 @@ serve(async (req) => {
     const allOpportunities = results.flat();
     searchStats.totalRaw = allOpportunities.length;
     
-    console.log(`📊 Raw results from 11 sources: ${searchStats.totalRaw}`);
+    console.log(`📊 Raw results from 14 sources: ${searchStats.totalRaw}`);
     console.log(`   Adzuna: ${searchStats.adzuna}, JSearch: ${searchStats.jsearch}, Arbeitnow: ${searchStats.arbeitnow}`);
     console.log(`   Remotive: ${searchStats.remotive}, TheMuse: ${searchStats.themuse}, LinkedIn: ${searchStats.linkedin}`);
     console.log(`   Jobicy: ${searchStats.jobicy}, Himalayas: ${searchStats.himalayas}, Landing.jobs: ${searchStats.landingjobs}`);
-    console.log(`   USAJobs: ${searchStats.usajobs}`);
+    console.log(`   Reed: ${searchStats.reed}, Jooble: ${searchStats.jooble}, Careerjet: ${searchStats.careerjet}`);
+    console.log(`   DevITjobs: ${searchStats.devitjobs}, USAJobs: ${searchStats.usajobs}`);
 
     // ===== FILTERING =====
     let filtered = allOpportunities.filter(opp => 
@@ -487,7 +524,7 @@ serve(async (req) => {
     });
 
     searchStats.afterFilter = unique.length;
-    console.log(`✅ Final: ${unique.length} unique opportunities from 11 sources`);
+    console.log(`✅ Final: ${unique.length} unique opportunities from 14 sources`);
 
     return new Response(
       JSON.stringify({
@@ -500,6 +537,8 @@ serve(async (req) => {
             themuse: searchStats.themuse, linkedin: searchStats.linkedin,
             jobicy: searchStats.jobicy, himalayas: searchStats.himalayas,
             landingjobs: searchStats.landingjobs,
+            reed: searchStats.reed, jooble: searchStats.jooble,
+            careerjet: searchStats.careerjet, devitjobs: searchStats.devitjobs,
             usajobs: searchStats.usajobs, ai: searchStats.ai
           },
           quality: {
@@ -809,7 +848,205 @@ async function fetchFromLandingJobs(regions: string[], keywords: string[], max: 
 }
 
 
-// 10. USAJobs (FREE government jobs)
+// 9. Reed.co.uk (FREE API key - UK's #1 job board)
+const REED_COUNTRY_MAP: Record<string, string> = {
+  'UK': 'United Kingdom', 'DACH': 'Germany', 'France': 'France', 'Italy': 'Italy',
+  'Iberia': 'Spain', 'Benelux': 'Netherlands', 'North America': 'United States',
+};
+
+async function fetchFromReed(regions: string[], keywords: string[], apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const search = keywords.length > 0 ? keywords.slice(0, 3).join(' ') : 'CEO Director VP';
+    // Reed uses Basic Auth with API key as username, empty password
+    const authHeader = btoa(`${apiKey}:`);
+    
+    for (const region of regions) {
+      const locationName = REED_COUNTRY_MAP[region] || '';
+      const url = `https://www.reed.co.uk/api/1.0/search?keywords=${encodeURIComponent(search)}${locationName ? `&locationName=${encodeURIComponent(locationName)}` : ''}&resultsToTake=${Math.ceil(max / regions.length)}`;
+      
+      const res = await fetch(url, {
+        headers: { 'Authorization': `Basic ${authHeader}` }
+      });
+      if (!res.ok) continue;
+      
+      const data = await res.json();
+      for (const job of (data.results || data || []).slice(0, Math.ceil(max / regions.length))) {
+        if (!isExecutiveTitle(job.jobTitle || '')) continue;
+        opps.push({
+          id: `reed-${job.jobId}-${Date.now()}`,
+          title: job.jobTitle || 'Position',
+          company: job.employerName || 'Company',
+          location: job.locationName || 'UK',
+          salary_range: job.minimumSalary && job.maximumSalary 
+            ? `£${Math.round(job.minimumSalary).toLocaleString()} - £${Math.round(job.maximumSalary).toLocaleString()}`
+            : 'Competitive',
+          status: 'New', source: 'Reed.co.uk',
+          posted_date: job.date ? new Date(job.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          description: (job.jobDescription || '').substring(0, 1500),
+          match_score: 0, url: job.jobUrl || `https://www.reed.co.uk/jobs/${job.jobId}`,
+          verified: true, verification_score: 92,
+          data_quality: 'verified', source_reliability: 'high',
+          scraped_at: new Date().toISOString()
+        });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { console.error('Reed:', e); }
+  return opps.slice(0, max);
+}
+
+// 10. Jooble (FREE API key - 140M+ listings, 69 countries)
+const JOOBLE_LOCATIONS: Record<string, string> = {
+  'SEE': 'Croatia', 'DACH': 'Germany', 'Nordics': 'Sweden', 'UK': 'United Kingdom',
+  'North America': 'United States', 'Middle East': 'UAE', 'Asia': 'Singapore',
+  'Oceania': 'Australia', 'Eastern Europe': 'Poland', 'Latin America': 'Brazil',
+  'Africa': 'South Africa', 'Benelux': 'Netherlands', 'France': 'France',
+  'Italy': 'Italy', 'Iberia': 'Spain', 'Baltics': 'Estonia',
+};
+
+async function fetchFromJooble(regions: string[], keywords: string[], apiKey: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const search = keywords.length > 0 ? keywords.slice(0, 3).join(' ') : 'CEO Director VP';
+    
+    for (const region of regions) {
+      const location = JOOBLE_LOCATIONS[region] || '';
+      const res = await fetch(`https://jooble.org/api/${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keywords: search,
+          location: location,
+          page: 1
+        })
+      });
+      if (!res.ok) continue;
+      
+      const data = await res.json();
+      for (const job of (data.jobs || []).slice(0, Math.ceil(max / regions.length))) {
+        if (!isExecutiveTitle(job.title || '')) continue;
+        opps.push({
+          id: `jooble-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          title: job.title || 'Position',
+          company: job.company || 'Company',
+          location: job.location || location || 'International',
+          salary_range: job.salary || 'Competitive',
+          status: 'New', source: 'Jooble',
+          posted_date: job.updated ? new Date(job.updated).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          description: (job.snippet || '').substring(0, 1500),
+          match_score: 0, url: job.link || 'https://jooble.org',
+          verified: true, verification_score: 85,
+          data_quality: 'verified', source_reliability: 'high',
+          scraped_at: new Date().toISOString()
+        });
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+  } catch (e) { console.error('Jooble:', e); }
+  return opps.slice(0, max);
+}
+
+// 11. Careerjet (FREE affiliate ID - global job search engine)
+const CAREERJET_LOCALES: Record<string, { locale: string; url: string }> = {
+  'UK': { locale: 'en_GB', url: 'http://www.careerjet.co.uk' },
+  'DACH': { locale: 'de_DE', url: 'http://www.careerjet.de' },
+  'France': { locale: 'fr_FR', url: 'http://www.careerjet.fr' },
+  'Italy': { locale: 'it_IT', url: 'http://www.careerjet.it' },
+  'Iberia': { locale: 'es_ES', url: 'http://www.careerjet.es' },
+  'North America': { locale: 'en_US', url: 'http://www.careerjet.com' },
+  'Benelux': { locale: 'nl_NL', url: 'http://www.careerjet.nl' },
+  'Nordics': { locale: 'sv_SE', url: 'http://www.careerjet.se' },
+  'SEE': { locale: 'en_GB', url: 'http://www.careerjet.co.uk' },
+  'Asia': { locale: 'en_SG', url: 'http://www.careerjet.sg' },
+  'Oceania': { locale: 'en_AU', url: 'http://www.careerjet.com.au' },
+};
+
+async function fetchFromCareerjet(regions: string[], keywords: string[], affId: string, max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const search = keywords.length > 0 ? keywords.slice(0, 3).join(' ') : 'CEO Director VP Executive';
+    
+    for (const region of regions) {
+      const config = CAREERJET_LOCALES[region] || CAREERJET_LOCALES['UK'];
+      const location = JSEARCH_LOCATIONS[region]?.[0] || '';
+      const url = `https://public.api.careerjet.net/search?locale_code=${config.locale}&keywords=${encodeURIComponent(search)}&location=${encodeURIComponent(location)}&affid=${affId}&pagesize=${Math.min(Math.ceil(max / regions.length), 99)}&page=1&sort=date`;
+      
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      
+      const data = await res.json();
+      if (data.type !== 'JOBS') continue;
+      
+      for (const job of (data.jobs || []).slice(0, Math.ceil(max / regions.length))) {
+        if (!isExecutiveTitle(job.title || '')) continue;
+        opps.push({
+          id: `careerjet-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          title: job.title || 'Position',
+          company: job.company || 'Company',
+          location: job.locations || location || 'International',
+          salary_range: job.salary || 'Competitive',
+          status: 'New', source: 'Careerjet',
+          posted_date: job.date ? new Date(job.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          description: (job.description || '').substring(0, 1500),
+          match_score: 0, url: job.url || 'https://careerjet.com',
+          verified: true, verification_score: 88,
+          data_quality: 'verified', source_reliability: 'high',
+          scraped_at: new Date().toISOString()
+        });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+  } catch (e) { console.error('Careerjet:', e); }
+  return opps.slice(0, max);
+}
+
+// 12. DevITjobs UK (FREE - no auth, tech/IT jobs)
+async function fetchFromDevITjobs(regions: string[], max: number): Promise<VerifiedOpportunity[]> {
+  const opps: VerifiedOpportunity[] = [];
+  try {
+    const res = await fetch('https://devitjobs.uk/api/jobsLight');
+    if (!res.ok) return [];
+    
+    const jobs = await res.json();
+    const regionLocs = regions.flatMap(r => (REGION_LOCATION_KEYWORDS[r] || []).concat(
+      (REGION_CONFIGS[r]?.locations || []).map(l => l.toLowerCase())
+    ));
+    
+    for (const job of (jobs || []).filter((j: any) => 
+      isExecutiveTitle(j.title || '') || 
+      (j.title || '').toLowerCase().includes('head') ||
+      (j.title || '').toLowerCase().includes('director') ||
+      (j.title || '').toLowerCase().includes('vp') ||
+      (j.title || '').toLowerCase().includes('lead')
+    ).slice(0, max * 2)) {
+      const loc = (job.location || '').toLowerCase();
+      const matches = loc.includes('remote') || regionLocs.some(l => loc.includes(l));
+      if (!matches && regionLocs.length > 0) continue;
+      
+      opps.push({
+        id: `devitjobs-${job._id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        title: job.title || 'Position',
+        company: job.companyName || 'Company',
+        location: job.location || 'UK',
+        salary_range: job.salaryMin && job.salaryMax 
+          ? `£${job.salaryMin.toLocaleString()} - £${job.salaryMax.toLocaleString()}`
+          : 'Competitive',
+        status: 'New', source: 'DevITjobs',
+        posted_date: job.datePosted ? new Date(job.datePosted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        description: (job.description || job.technologies?.join(', ') || '').substring(0, 1500),
+        match_score: 0, url: job.url || `https://devitjobs.uk/jobs/${job._id}`,
+        verified: true, verification_score: 82,
+        data_quality: 'verified', source_reliability: 'high',
+        scraped_at: new Date().toISOString(),
+        industry: 'Technology'
+      });
+    }
+  } catch (e) { console.error('DevITjobs:', e); }
+  return opps.slice(0, max);
+}
+
+// 13. USAJobs (FREE government jobs)
 async function fetchFromUSAJobs(keywords: string[], apiKey: string, email: string, max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   try {
