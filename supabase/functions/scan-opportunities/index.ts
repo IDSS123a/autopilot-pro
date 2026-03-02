@@ -304,7 +304,7 @@ serve(async (req) => {
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
     const REED_API_KEY = Deno.env.get('REED_API_KEY');
     const JOOBLE_API_KEY = Deno.env.get('JOOBLE_API_KEY');
-    const CAREERJET_AFFID = Deno.env.get('CAREERJET_AFFID');
+    // Careerjet removed - ECONNREFUSED from edge runtime
     
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -313,7 +313,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('🚀 WORLD-CLASS OPPORTUNITY SCANNER - 14 API SOURCES');
+    console.log('🚀 WORLD-CLASS OPPORTUNITY SCANNER - 13 API SOURCES');
     console.log('🔍 Scanning for regions:', regions);
     
     const targetRole = sanitizeInput(userProfile?.targetRole || 'Executive Leadership');
@@ -330,7 +330,7 @@ serve(async (req) => {
     const searchStats = {
       adzuna: 0, jsearch: 0, arbeitnow: 0, remotive: 0, themuse: 0, linkedin: 0,
       jobicy: 0, himalayas: 0, landingjobs: 0, usajobs: 0,
-      reed: 0, jooble: 0, careerjet: 0, devitjobs: 0,
+      reed: 0, jooble: 0, devitjobs: 0,
       ai: 0, errors: [] as string[], totalRaw: 0, afterFilter: 0
     };
 
@@ -417,14 +417,7 @@ serve(async (req) => {
       );
     }
 
-    // 11. Careerjet (FREE affiliate ID)
-    if (CAREERJET_AFFID) {
-      apiPromises.push(
-        fetchFromCareerjet(normalizedRegionNames, roleKeywords, CAREERJET_AFFID, perSourceLimit)
-          .then(jobs => { searchStats.careerjet = jobs.length; return jobs; })
-          .catch(e => { searchStats.errors.push(`Careerjet: ${e.message}`); return []; })
-      );
-    }
+    // Careerjet removed - ECONNREFUSED from Deno edge runtime
 
     // 12. DevITjobs UK (FREE - no auth required)
     apiPromises.push(
@@ -458,11 +451,11 @@ serve(async (req) => {
     const allOpportunities = results.flat();
     searchStats.totalRaw = allOpportunities.length;
     
-    console.log(`📊 Raw results from 14 sources: ${searchStats.totalRaw}`);
+    console.log(`📊 Raw results from 13 sources: ${searchStats.totalRaw}`);
     console.log(`   Adzuna: ${searchStats.adzuna}, JSearch: ${searchStats.jsearch}, Arbeitnow: ${searchStats.arbeitnow}`);
     console.log(`   Remotive: ${searchStats.remotive}, TheMuse: ${searchStats.themuse}, LinkedIn: ${searchStats.linkedin}`);
     console.log(`   Jobicy: ${searchStats.jobicy}, Himalayas: ${searchStats.himalayas}, Landing.jobs: ${searchStats.landingjobs}`);
-    console.log(`   Reed: ${searchStats.reed}, Jooble: ${searchStats.jooble}, Careerjet: ${searchStats.careerjet}`);
+    console.log(`   Reed: ${searchStats.reed}, Jooble: ${searchStats.jooble}`);
     console.log(`   DevITjobs: ${searchStats.devitjobs}, USAJobs: ${searchStats.usajobs}`);
 
     // ===== FILTERING =====
@@ -524,7 +517,7 @@ serve(async (req) => {
     });
 
     searchStats.afterFilter = unique.length;
-    console.log(`✅ Final: ${unique.length} unique opportunities from 14 sources`);
+    console.log(`✅ Final: ${unique.length} unique opportunities from 13 sources`);
 
     return new Response(
       JSON.stringify({
@@ -882,7 +875,7 @@ async function fetchFromReed(regions: string[], keywords: string[], apiKey: stri
             ? `£${Math.round(job.minimumSalary).toLocaleString()} - £${Math.round(job.maximumSalary).toLocaleString()}`
             : 'Competitive',
           status: 'New', source: 'Reed.co.uk',
-          posted_date: job.date ? new Date(job.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          posted_date: (() => { try { const d = new Date(job.date); return isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0]; } catch { return new Date().toISOString().split('T')[0]; } })(),
           description: (job.jobDescription || '').substring(0, 1500),
           match_score: 0, url: job.jobUrl || `https://www.reed.co.uk/jobs/${job.jobId}`,
           verified: true, verification_score: 92,
@@ -947,82 +940,38 @@ async function fetchFromJooble(regions: string[], keywords: string[], apiKey: st
   return opps.slice(0, max);
 }
 
-// 11. Careerjet (FREE affiliate ID - global job search engine)
-const CAREERJET_LOCALES: Record<string, { locale: string; url: string }> = {
-  'UK': { locale: 'en_GB', url: 'http://www.careerjet.co.uk' },
-  'DACH': { locale: 'de_DE', url: 'http://www.careerjet.de' },
-  'France': { locale: 'fr_FR', url: 'http://www.careerjet.fr' },
-  'Italy': { locale: 'it_IT', url: 'http://www.careerjet.it' },
-  'Iberia': { locale: 'es_ES', url: 'http://www.careerjet.es' },
-  'North America': { locale: 'en_US', url: 'http://www.careerjet.com' },
-  'Benelux': { locale: 'nl_NL', url: 'http://www.careerjet.nl' },
-  'Nordics': { locale: 'sv_SE', url: 'http://www.careerjet.se' },
-  'SEE': { locale: 'en_GB', url: 'http://www.careerjet.co.uk' },
-  'Asia': { locale: 'en_SG', url: 'http://www.careerjet.sg' },
-  'Oceania': { locale: 'en_AU', url: 'http://www.careerjet.com.au' },
-};
-
-async function fetchFromCareerjet(regions: string[], keywords: string[], affId: string, max: number): Promise<VerifiedOpportunity[]> {
-  const opps: VerifiedOpportunity[] = [];
-  try {
-    const search = keywords.length > 0 ? keywords.slice(0, 3).join(' ') : 'CEO Director VP Executive';
-    
-    for (const region of regions) {
-      const config = CAREERJET_LOCALES[region] || CAREERJET_LOCALES['UK'];
-      const location = JSEARCH_LOCATIONS[region]?.[0] || '';
-      const url = `https://public.api.careerjet.net/search?locale_code=${config.locale}&keywords=${encodeURIComponent(search)}&location=${encodeURIComponent(location)}&affid=${affId}&pagesize=${Math.min(Math.ceil(max / regions.length), 99)}&page=1&sort=date`;
-      
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      
-      const data = await res.json();
-      if (data.type !== 'JOBS') continue;
-      
-      for (const job of (data.jobs || []).slice(0, Math.ceil(max / regions.length))) {
-        if (!isExecutiveTitle(job.title || '')) continue;
-        opps.push({
-          id: `careerjet-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-          title: job.title || 'Position',
-          company: job.company || 'Company',
-          location: job.locations || location || 'International',
-          salary_range: job.salary || 'Competitive',
-          status: 'New', source: 'Careerjet',
-          posted_date: job.date ? new Date(job.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          description: (job.description || '').substring(0, 1500),
-          match_score: 0, url: job.url || 'https://careerjet.com',
-          verified: true, verification_score: 88,
-          data_quality: 'verified', source_reliability: 'high',
-          scraped_at: new Date().toISOString()
-        });
-      }
-      await new Promise(r => setTimeout(r, 200));
-    }
-  } catch (e) { console.error('Careerjet:', e); }
-  return opps.slice(0, max);
-}
+// Careerjet removed - ECONNREFUSED from Deno edge runtime
 
 // 12. DevITjobs UK (FREE - no auth, tech/IT jobs)
 async function fetchFromDevITjobs(regions: string[], max: number): Promise<VerifiedOpportunity[]> {
   const opps: VerifiedOpportunity[] = [];
   try {
     const res = await fetch('https://devitjobs.uk/api/jobsLight');
-    if (!res.ok) return [];
+    if (!res.ok) { console.log(`DevITjobs API status: ${res.status}`); return []; }
     
     const jobs = await res.json();
+    console.log(`DevITjobs raw count: ${Array.isArray(jobs) ? jobs.length : 'not array'}`);
+    
     const regionLocs = regions.flatMap(r => (REGION_LOCATION_KEYWORDS[r] || []).concat(
       (REGION_CONFIGS[r]?.locations || []).map(l => l.toLowerCase())
     ));
     
-    for (const job of (jobs || []).filter((j: any) => 
-      isExecutiveTitle(j.title || '') || 
-      (j.title || '').toLowerCase().includes('head') ||
-      (j.title || '').toLowerCase().includes('director') ||
-      (j.title || '').toLowerCase().includes('vp') ||
-      (j.title || '').toLowerCase().includes('lead')
-    ).slice(0, max * 2)) {
+    // Broaden title filter to include senior tech roles
+    const filtered = (Array.isArray(jobs) ? jobs : []).filter((j: any) => {
+      const title = (j.title || '').toLowerCase();
+      return isExecutiveTitle(j.title || '') || 
+        title.includes('head') || title.includes('director') || 
+        title.includes('vp') || title.includes('lead') ||
+        title.includes('senior') || title.includes('principal') ||
+        title.includes('staff') || title.includes('manager');
+    });
+    console.log(`DevITjobs after title filter: ${filtered.length}`);
+    
+    for (const job of filtered.slice(0, max * 2)) {
       const loc = (job.location || '').toLowerCase();
-      const matches = loc.includes('remote') || regionLocs.some(l => loc.includes(l));
-      if (!matches && regionLocs.length > 0) continue;
+      const matches = loc.includes('remote') || loc.includes('anywhere') || 
+        regionLocs.length === 0 || regionLocs.some(l => loc.includes(l));
+      if (!matches) continue;
       
       opps.push({
         id: `devitjobs-${job._id || Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -1033,7 +982,7 @@ async function fetchFromDevITjobs(regions: string[], max: number): Promise<Verif
           ? `£${job.salaryMin.toLocaleString()} - £${job.salaryMax.toLocaleString()}`
           : 'Competitive',
         status: 'New', source: 'DevITjobs',
-        posted_date: job.datePosted ? new Date(job.datePosted).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        posted_date: (() => { try { const d = new Date(job.datePosted); return isNaN(d.getTime()) ? new Date().toISOString().split('T')[0] : d.toISOString().split('T')[0]; } catch { return new Date().toISOString().split('T')[0]; } })(),
         description: (job.description || job.technologies?.join(', ') || '').substring(0, 1500),
         match_score: 0, url: job.url || `https://devitjobs.uk/jobs/${job._id}`,
         verified: true, verification_score: 82,
@@ -1042,6 +991,7 @@ async function fetchFromDevITjobs(regions: string[], max: number): Promise<Verif
         industry: 'Technology'
       });
     }
+    console.log(`DevITjobs after region filter: ${opps.length}`);
   } catch (e) { console.error('DevITjobs:', e); }
   return opps.slice(0, max);
 }
@@ -1121,17 +1071,21 @@ async function fetchFromLinkedIn(regions: string[], keywords: string[], firecraw
     }
   }
   
-  // AI fallback
+  // AI fallback with web search grounding
   if (failed && lovableKey) {
     for (const geo of geoIds.slice(0, 3)) {
       try {
-        const res = await fetch('https://api.lovable.dev/v1/ai', {
+        const kw = keywords.slice(0, 2).join(' ') || 'CEO Director';
+        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${lovableKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'google/gemini-2.5-flash',
-            messages: [{ role: 'user', content: `Find current executive job openings in ${geo.name} from LinkedIn. Return JSON: [{"title":"","company":"","location":"","url":""}]` }],
-            tools: [{ type: 'web_search', search: { enabled: true, context_size: 'high' } }]
+            messages: [
+              { role: 'system', content: 'You are a job search assistant. Search LinkedIn and other job boards for current executive openings. Return ONLY a valid JSON array.' },
+              { role: 'user', content: `Find 10 current executive job openings (${kw}) in ${geo.name} posted in the last 7 days. Search LinkedIn, Indeed, and Glassdoor. Return JSON array: [{"title":"Job Title","company":"Company Name","location":"City, Country","url":"https://linkedin.com/jobs/view/..."}]. Only include real, currently active positions.` }
+            ],
+            max_tokens: 4000, temperature: 0.3
           })
         });
         if (res.ok) {
