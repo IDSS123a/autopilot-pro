@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ const Auth = () => {
     const urlMode = searchParams.get('mode');
     return urlMode === 'reset' ? 'reset' : 'login';
   });
+  const modeRef = useRef(mode);
   const [checkingSession, setCheckingSession] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,13 +31,19 @@ const Auth = () => {
 
   // Check if user is already logged in and handle password reset flow
   useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  // Check session and listen for auth events — runs ONCE
+  useEffect(() => {
     let isMounted = true;
 
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && isMounted) {
-          if (mode === 'reset') {
+          // If URL says reset, stay on reset form
+          if (modeRef.current === 'reset') {
             setCheckingSession(false);
             return;
           }
@@ -54,19 +61,20 @@ const Auth = () => {
 
     checkSession();
 
-    // Listen only for PASSWORD_RECOVERY event here; 
-    // normal auth redirects handled by AppContext
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (!isMounted) return;
 
       if (event === 'PASSWORD_RECOVERY') {
+        // User clicked recovery link — show reset form, do NOT redirect
         setMode('reset');
+        modeRef.current = 'reset';
         setCheckingSession(false);
         return;
       }
 
-      // Only redirect on SIGNED_IN if not in reset mode
-      if (event === 'SIGNED_IN' && session && mode !== 'reset') {
+      // Only redirect on SIGNED_IN if NOT in reset mode
+      // Use ref to avoid stale closure
+      if (event === 'SIGNED_IN' && modeRef.current !== 'reset') {
         navigate('/app', { replace: true });
       }
     });
@@ -75,7 +83,7 @@ const Auth = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, mode]);
+  }, [navigate]); // No `mode` dependency — use modeRef instead
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +106,11 @@ const Auth = () => {
         toast({ title: "Missing fields", description: "Please fill in all fields", variant: "destructive" });
         return;
       }
-      const result = await signup(email, password, password, fullName);
+      if (password !== confirmPassword) {
+        toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same", variant: "destructive" });
+        return;
+      }
+      const result = await signup(email, password, confirmPassword, fullName);
       if (result.success) {
         toast({
           title: "Account created!",
@@ -106,6 +118,7 @@ const Auth = () => {
         });
         setMode('login');
         setPassword('');
+        setConfirmPassword('');
       } else {
         toast({ title: "Signup error", description: result.error, variant: "destructive" });
       }
@@ -139,7 +152,8 @@ const Auth = () => {
       const result = await changePassword(password);
       if (result.success) {
         toast({ title: "Password updated!", description: "Your password has been successfully changed" });
-        navigate('/app');
+        // After successful reset, navigate to app (user is already signed in via recovery)
+        navigate('/app', { replace: true });
       } else {
         if (result.error?.includes('Auth session missing') || result.error?.includes('not logged in')) {
           toast({ title: "Link expired", description: "Your reset link has expired. Please request a new one.", variant: "destructive" });
@@ -210,7 +224,11 @@ const Auth = () => {
             {(mode === 'forgot-password' || mode === 'reset') && (
               <button
                 type="button"
-                onClick={() => setMode('login')}
+                onClick={() => {
+                  setMode('login');
+                  setPassword('');
+                  setConfirmPassword('');
+                }}
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 transition-smooth"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -293,7 +311,7 @@ const Auth = () => {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {mode === 'signup' && (
+                  {(mode === 'signup' || mode === 'reset') && (
                     <p className="text-xs text-muted-foreground">
                       Min 6 characters, must include a letter and a number
                     </p>
