@@ -526,31 +526,90 @@ const OpportunityScanner: React.FC = () => {
         // Sort by match score (highest first)
         const allJobs = [...newOpportunities, ...jobs].sort((a, b) => (b.match_score || 0) - (a.match_score || 0));
         setJobs(allJobs);
-        toast.success(`Found ${newOpportunities.length} new opportunities from LinkedIn, Indeed, Glassdoor and more!`);
         
-        // Send email notification for high-match opportunities
-        const highMatchOpps = newOpportunities.filter((opp: Opportunity) => (opp.match_score || 0) >= 70);
-        if (highMatchOpps.length > 0) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              await supabase.functions.invoke('send-opportunity-notification', {
-                body: {
-                  user_id: user.id,
-                  opportunities: highMatchOpps.slice(0, 5).map((opp: Opportunity) => ({
-                    id: opp.id,
-                    company_name: opp.company,
-                    position_title: opp.title,
-                    location: opp.location,
-                    salary_range: opp.salary_range,
-                    match_score: opp.match_score
-                  }))
-                }
+        const sourceStats = data.stats?.breakdown || {};
+        const qualityStats = data.stats?.quality || {};
+        toast.success(
+          `Found ${newOpportunities.length} opportunities (${qualityStats.verified || 0} verified, ${qualityStats.scraped || 0} scraped)`,
+          { duration: 6000 }
+        );
+        
+        // Auto-save high-match opportunities to database
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          const highMatchToSave = newOpportunities.filter(
+            (opp: Opportunity) => (opp.match_score || 0) >= 70 && !savedOpportunities.includes(opp.id)
+          );
+          
+          if (highMatchToSave.length > 0) {
+            const insertRows = highMatchToSave.map((opp: Opportunity) => {
+              let parsedDate: string | null = null;
+              if (opp.posted_date) {
+                const dateMatch = opp.posted_date.match(/\d{4}-\d{2}-\d{2}/);
+                if (dateMatch) parsedDate = dateMatch[0];
+              }
+              return {
+                user_id: currentUser.id,
+                position_title: opp.title,
+                company_name: opp.company,
+                location: opp.location || null,
+                salary_range: opp.salary_range || null,
+                match_score: opp.match_score || null,
+                status: 'new',
+                source: opp.source || null,
+                posted_date: parsedDate,
+                job_description: (opp.description || '').substring(0, 5000),
+                notes: JSON.stringify({
+                  data_quality: opp.data_quality || 'scraped',
+                  source_reliability: opp.source_reliability || 'medium',
+                  verification_status: opp.data_quality === 'verified' ? 'verified' : 'unverified',
+                  auto_saved: true,
+                  saved_at: new Date().toISOString()
+                })
+              };
+            });
+
+            const { data: inserted, error: insertError } = await supabase
+              .from('opportunities')
+              .insert(insertRows)
+              .select('id');
+
+            if (!insertError && inserted) {
+              const newSavedIds = inserted.map((r: any) => r.id);
+              setSavedOpportunities(prev => [...prev, ...newSavedIds]);
+              
+              // Update local job IDs to match database IDs
+              setJobs(prev => {
+                const updated = [...prev];
+                highMatchToSave.forEach((opp: Opportunity, idx: number) => {
+                  if (inserted[idx]) {
+                    const jobIdx = updated.findIndex(j => j.id === opp.id);
+                    if (jobIdx !== -1) updated[jobIdx] = { ...updated[jobIdx], id: inserted[idx].id };
+                  }
+                });
+                return updated;
               });
-              toast.info('📧 Email notification sent for high-match opportunities');
+              
+              toast.info(`💾 Auto-saved ${inserted.length} high-match opportunities (70%+)`, { duration: 4000 });
             }
-          } catch (emailError) {
-            console.log('Email notification not sent (API key may not be configured):', emailError);
+          }
+          
+          // Send email notification for top opportunities
+          const topOpps = newOpportunities.filter((opp: Opportunity) => (opp.match_score || 0) >= 70);
+          if (topOpps.length > 0) {
+            supabase.functions.invoke('send-opportunity-notification', {
+              body: {
+                user_id: currentUser.id,
+                opportunities: topOpps.slice(0, 5).map((opp: Opportunity) => ({
+                  id: opp.id,
+                  company_name: opp.company,
+                  position_title: opp.title,
+                  location: opp.location,
+                  salary_range: opp.salary_range,
+                  match_score: opp.match_score
+                }))
+              }
+            }).catch(() => {});
           }
         }
       } else {
