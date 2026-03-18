@@ -531,7 +531,7 @@ serve(async (req) => {
             jobicy: searchStats.jobicy, himalayas: searchStats.himalayas,
             landingjobs: searchStats.landingjobs,
             reed: searchStats.reed, jooble: searchStats.jooble,
-            careerjet: searchStats.careerjet, devitjobs: searchStats.devitjobs,
+            devitjobs: searchStats.devitjobs,
             usajobs: searchStats.usajobs, ai: searchStats.ai
           },
           quality: {
