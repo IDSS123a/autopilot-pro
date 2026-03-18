@@ -51,7 +51,6 @@ export const useSessionTracker = () => {
           .from('user_sessions')
           .update({ 
             last_activity_at: new Date().toISOString(),
-            pages_visited: supabase.rpc ? undefined : 1 // Will increment via page views
           })
           .eq('session_id', sessionId);
         return;
@@ -67,7 +66,6 @@ export const useSessionTracker = () => {
             started_at: new Date().toISOString(),
             last_activity_at: new Date().toISOString(),
             user_agent: navigator.userAgent,
-            pages_visited: 1
           }, { onConflict: 'session_id' });
 
         if (!error) {
