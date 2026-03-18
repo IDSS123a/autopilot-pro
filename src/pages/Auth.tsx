@@ -30,6 +30,31 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login, signup, resetPassword, changePassword, isLoading } = useSecureAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result?.error) {
+        toast({
+          title: "Google sign-in failed",
+          description: result.error.message || "Please try again",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Google sign-in failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   // Check if user is already logged in and handle password reset flow
   useEffect(() => {
