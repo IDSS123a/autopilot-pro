@@ -28,7 +28,7 @@ export const useUserRole = (): UseUserRoleReturn => {
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
           // Default to 'user' if no role found
