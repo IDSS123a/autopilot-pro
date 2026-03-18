@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase, Loader2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useSecureAuth } from '@/hooks/useSecureAuth';
+import { lovable } from '@/integrations/lovable/index';
+import { Separator } from '@/components/ui/separator';
 
 type AuthMode = 'login' | 'signup' | 'forgot-password' | 'reset';
 
