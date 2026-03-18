@@ -72,13 +72,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load profile from database when user is authenticated
   const loadProfileFromDB = async (userId: string) => {
     try {
-      const { data: profile, error } = await supabase
+      let { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
       
-      if (error) {
+      // If profile doesn't exist, create it from user metadata
+      if (error && error.code === 'PGRST116') {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const meta = currentUser?.user_metadata || {};
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            full_name: meta.full_name || meta.name || '',
+            email: currentUser?.email || '',
+            avatar_url: meta.avatar_url || '',
+          }, { onConflict: 'id' })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          return;
+        }
+        profile = newProfile;
+        error = null;
+      } else if (error) {
         console.error('Error loading profile:', error);
         return;
       }
