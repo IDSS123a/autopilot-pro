@@ -1211,10 +1211,10 @@ async function scoreOpportunities(opps: VerifiedOpportunity[], targetRole: strin
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: [
-            { role: 'system', content: 'Career advisor. Score jobs 0-100 based on fit.' },
-            { role: 'user', content: `Score for ${targetRole} in ${industries}. Jobs: ${JSON.stringify(chunk.map(o => ({ t: o.title, c: o.company })))}. Return: [{"i":0,"s":85}]` }
+            { role: 'system', content: `You are an executive career advisor scoring job opportunities for a senior professional. Score each job 0-100 based on: title relevance (30%), industry match (25%), seniority alignment (20%), location desirability (15%), company prestige (10%). Be strict: only score 80+ for near-perfect matches. Score below 50 for clearly irrelevant roles.` },
+            { role: 'user', content: `Candidate: ${targetRole} in ${industries}${bio ? `. Background: ${bio.substring(0, 200)}` : ''}.\n\nScore these ${chunk.length} jobs:\n${JSON.stringify(chunk.map((o, idx) => ({ i: idx, t: o.title, c: o.company, l: o.location, d: (o.description || '').substring(0, 150) })))}\n\nReturn ONLY a JSON array: [{"i":0,"s":85}] where i=index, s=score 0-100.` }
           ],
-          max_tokens: 2000
+          max_tokens: 3000, temperature: 0.2
         })
       });
       if (res.ok) {
