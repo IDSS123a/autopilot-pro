@@ -67,7 +67,6 @@ export const useSessionTracker = () => {
             started_at: new Date().toISOString(),
             last_activity_at: new Date().toISOString(),
             user_agent: navigator.userAgent,
-            pages_visited: 1
           }, { onConflict: 'session_id' });
 
         if (!error) {
