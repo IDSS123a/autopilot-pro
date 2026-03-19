@@ -10,6 +10,7 @@ import { generateCampaignStrategy, generateMorningBriefing } from '@/services/ai
 import { supabase } from '@/integrations/supabase/client';
 import { ApplicationPipeline } from './ApplicationPipeline';
 import { UpcomingInterviews } from './UpcomingInterviews';
+import AutoScanStats from './AutoScanStats';
 
 interface DashboardStats {
   applications: number;
