@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import ChangePassword from './ChangePassword';
 import NotificationSettings from './NotificationSettings';
+import AutoScanSettings from './AutoScanSettings';
 
 const Settings: React.FC = () => {
   const { userProfile, updateUserProfile, user } = useApp();
@@ -95,6 +96,9 @@ const Settings: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Auto-Scan Configuration */}
+      <AutoScanSettings />
 
       {/* Notification Settings Section */}
       <NotificationSettings />
