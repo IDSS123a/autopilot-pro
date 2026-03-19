@@ -272,10 +272,11 @@ const CommandCenter: React.FC = () => {
         </div>
       </div>
 
-      {/* Pipeline and Calendar Widgets */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Pipeline, Calendar, and Auto-Scan Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ApplicationPipeline />
         <UpcomingInterviews />
+        <AutoScanStats />
       </div>
 
       {/* Agent Activity Feed */}

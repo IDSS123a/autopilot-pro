@@ -97,6 +97,9 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* Auto-Scan Configuration */}
+      <AutoScanSettings />
+
       {/* Notification Settings Section */}
       <NotificationSettings />
 
